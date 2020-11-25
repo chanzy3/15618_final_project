@@ -245,16 +245,22 @@ void bin_color(COLOR color, int count[6]) {
   switch (color) {
     case CA:
       count[0]++;
+      break;
     case CB:
       count[1]++;
+      break;
     case CC:
       count[2]++;
+      break;
     case CD:
       count[3]++;
+      break;
     case CE:
       count[4]++;
+      break;
     case CF:
       count[5]++;
+      break;
   }
 }
 
