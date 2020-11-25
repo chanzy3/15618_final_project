@@ -90,6 +90,11 @@ node_t *node_cpy(node_t *node) {
   return ret;
 }
 
+void node_destroy(node_t *node) {
+  free(node->cube);
+  free(node);
+}
+
 bool bfs_solve_internal(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, std::queue<node_t *> q[2]) {
 
   node_t *root = node_new();
@@ -98,8 +103,8 @@ bool bfs_solve_internal(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, s
   q[0].push(root);
 
   for (int iter=0; iter<DEPTH_LIMIT; iter++) {
-    std::queue<node_t *> from = q[iter%2];
-    std::queue<node_t *> to = q[(iter+1) % 2];
+    std::queue<node_t *> &from = q[iter%2];
+    std::queue<node_t *> &to = q[(iter+1) % 2];
 
     node_t *n_old, *n;
     while (from.size() > 0) {
@@ -118,6 +123,8 @@ bool bfs_solve_internal(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, s
         }
         to.push(n);
       }
+
+      node_destroy(n_old);
     }
   }
 
@@ -131,9 +138,8 @@ bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 
   for (int i=0; i<2; i++) {
     while (q[i].size() != 0) {
-      free(q[i].front()->cube);
-      free(q[i].front());
-      q->pop();
+      node_destroy(q[i].front());
+      q[i].pop();
     }
   }
 

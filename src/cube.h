@@ -5,6 +5,8 @@
 #ifndef INC_15618_FINAL_PROJECT_CUBE_H
 #define INC_15618_FINAL_PROJECT_CUBE_H
 
+#include "debug.h"
+
 #define COLOR int
 #define CA 2
 #define CB 3
@@ -51,13 +53,22 @@ void D3(cube_t *c);
 // operation must be one of F, B, L, R, U, D
 void apply(cube_t *cube, char operation);
 
-#define VALID_CHECK
 #ifdef VALID_CHECK
 #define TEST_INTEGRITY(c) test_integrity(c)
 #else
 #define TEST_INTEGRITY(c)
 #endif
+// use macro above
 bool test_integrity(cube_t *c);
 bool test_converge(cube_t *c);
+
+#ifdef DEBUG
+#define DBG_CUBE(cube) ppp(cube)
+#else
+#define DBG_CUBE(cube)
+#endif
+// use macro above
+void ppp0(COLOR s[DIM][DIM]);
+void ppp(cube_t *cube);
 
 #endif //INC_15618_FINAL_PROJECT_CUBE_H

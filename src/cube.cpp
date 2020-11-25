@@ -278,6 +278,8 @@ bool test_integrity(cube_t *c) {
       bin_color(c->d[i][j], count);
     }
   }
+
+  // printf("%d, %d, %d, %d, %d, %d\n", count[0], count[1], count[2], count[3], count[4], count[5]);
   for (int i=0; i<6; i++) {
     if (count[i] != DIM * DIM) {
       fprintf(stderr, "count for color C%c should be %d but is %d\n", 'A'+i, DIM * DIM, count[i]);
@@ -303,9 +305,11 @@ bool same_color(COLOR s[DIM][DIM]) {
 }
 
 bool test_converge(cube_t *c) {
-  if (!TEST_INTEGRITY(c)) {
+#ifdef VALID_CHECK
+  if (!test_integrity(c)) {
     return false;
   }
+#endif
 
   // simplified check based on cube valid
   if (!same_color(c->f)) {
@@ -329,3 +333,29 @@ bool test_converge(cube_t *c) {
 
   return true;
 }
+
+// TODO(tianez): remove
+void ppp0(COLOR s[DIM][DIM]) {
+  for (int i=0; i<DIM; i++) {
+    for (int j=0; j<DIM; j++) {
+      printf("%d ", s[i][j]);
+    }
+    printf("\n");
+  }
+}
+
+void ppp(cube_t *cube) {
+  printf("F\n");
+  ppp0(cube->f);
+  printf("B\n");
+  ppp0(cube->b);
+  printf("L\n");
+  ppp0(cube->l);
+  printf("R\n");
+  ppp0(cube->r);
+  printf("U\n");
+  ppp0(cube->u);
+  printf("D\n");
+  ppp0(cube->d);
+}
+

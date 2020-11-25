@@ -6,6 +6,7 @@
 #define INC_15618_FINAL_PROJECT_SOLVER_H
 
 #include "cube.h"
+#include "debug.h"
 
 #define MAX_DEPTH 26 // TODO(tianez):
 #define DEPTH_LIMIT 4 // must be smaller than MAX_DEPTH

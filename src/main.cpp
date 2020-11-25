@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "solver.h"
 #include "cube.h"
+#include "debug.h"
+#include "solver.h"
 
 void usage(const char* progname) {
   printf("Usage: %s [options]\n", progname);
@@ -44,8 +45,6 @@ int main(int argc, char** argv) {
   }
   // end parsing of commandline options //////////////////////////////////////
 
-  cube_t *cube = cube_new(true);
-
   // input file formats
   //
   // 1. (6 x 3 x 3)
@@ -58,6 +57,8 @@ int main(int argc, char** argv) {
   //  2. operations
   // O
   // F F B ....
+
+  cube_t *cube = cube_new(true);
 
   FILE *f = fopen(input_file_name, "r");
   char option;
