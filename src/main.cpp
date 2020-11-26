@@ -6,6 +6,7 @@
 #include "cube.h"
 #include "debug.h"
 #include "solver.h"
+#include "cycleTimer.h"
 
 void usage(const char* progname) {
   printf("Usage: %s [options]\n", progname);
@@ -17,23 +18,18 @@ void usage(const char* progname) {
 
 
 int main(int argc, char** argv) {
-  bool benchmark = false;
   char *input_file_name = NULL;
 
   // parse commandline options ////////////////////////////////////////////
   int opt;
   static struct option long_options[] = {
       {"help",     0, 0,  '?'},
-      {"bench",    0, 0,  'b'},
       {"file",     1, 0,  'f'},
       {0 ,0, 0, 0}
   };
 
-  while ((opt = getopt_long(argc, argv, "bf:?", long_options, NULL)) != EOF) {
+  while ((opt = getopt_long(argc, argv, "f:?", long_options, NULL)) != EOF) {
     switch (opt) {
-      case 'b':
-        benchmark = true;
-        break;
       case 'f':
         input_file_name = optarg;
         break;
@@ -45,6 +41,8 @@ int main(int argc, char** argv) {
   }
   // end parsing of commandline options //////////////////////////////////////
 
+  // start parsing input file for cube spec //////////////////////////////////////
+  //
   // input file formats
   //
   // 1. (6 x 3 x 3)
@@ -79,10 +77,19 @@ int main(int argc, char** argv) {
       fprintf(stderr, "invalid input file option '%c'\n", option);
       exit(1);
   }
+  // end parsing input file for cube spec //////////////////////////////////////
 
+  // start execution and benchmark /////////////////////////////////////////////
   int solution[MAX_DEPTH];
   int num_steps;
-  if (!bfs_solve(cube, solution, &num_steps)) {
+
+  // time the execution
+  double start_time = CycleTimer::currentSeconds();
+  bool solution_found = bfs_solve(cube, solution, &num_steps);
+  double end_time = CycleTimer::currentSeconds();
+
+  // print results
+  if (!solution_found) {
     fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
     exit(0);
   }
@@ -91,4 +98,8 @@ int main(int argc, char** argv) {
     fprintf(stdout, "%s ", to_string(solution[i]));
   }
   fprintf(stdout, "\n");
+
+  // print timing
+  double overallDuration = end_time - start_time;
+  fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
 }
