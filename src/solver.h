@@ -9,7 +9,7 @@
 #include "debug.h"
 
 #define MAX_DEPTH 26 // TODO(tianez):
-#define DEPTH_LIMIT 4 // must be smaller than MAX_DEPTH
+#define DEPTH_LIMIT 6 // must be smaller than MAX_DEPTH
 
 bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
