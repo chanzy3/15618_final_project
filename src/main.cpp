@@ -9,16 +9,17 @@
 #include "cycleTimer.h"
 
 void usage(const char* progname) {
-  printf("Usage: %s [options]\n", progname);
+  printf("Usage: %s [options] solver \n", progname);
+  printf("Valid solvers are: BFS, IDA\n");
   printf("Program Options:\n");
-  printf("  -b  --bench                Benchmark mode\n");
   printf("  -f  --file  <FILENAME>     Input file name\n");
   printf("  -?  --help                 This message\n");
 }
 
-
 int main(int argc, char** argv) {
   char *input_file_name = NULL;
+  char *solverName = NULL;
+  enum solver solver = BFS;
 
   // parse commandline options ////////////////////////////////////////////
   int opt;
@@ -40,6 +41,24 @@ int main(int argc, char** argv) {
     }
   }
   // end parsing of commandline options //////////////////////////////////////
+
+  if (optind + 1 > argc) {
+    fprintf(stderr, "Error: missing solver name\n");
+    usage(argv[0]);
+    return 1;
+  }
+
+  solverName = argv[optind];
+
+  if (strcmp(solverName, "BFS") == 0) {
+    solver = BFS;
+  } else if (strcmp(solverName, "IDA") == 0) {
+    solver = IDA;
+  } else {
+    fprintf(stderr, "Unknown solver name (%s)\n", solverName);
+    usage(argv[0]);
+    return 1;
+  }
 
   // start parsing input file for cube spec //////////////////////////////////////
   //
@@ -84,8 +103,16 @@ int main(int argc, char** argv) {
   int num_steps;
 
   // time the execution
+  bool solution_found;
   double start_time = CycleTimer::currentSeconds();
-  bool solution_found = bfs_solve(cube, solution, &num_steps);
+  switch (solver) {
+    case BFS:
+      solution_found = bfs_solve(cube, solution, &num_steps);
+      break;
+    case IDA:
+      solution_found = ida_solve(cube, solution, &num_steps);
+      break;
+  }
   double end_time = CycleTimer::currentSeconds();
 
   // print results

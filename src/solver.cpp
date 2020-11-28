@@ -82,6 +82,12 @@ node_t *node_new() {
   return node;
 }
 
+node_t *node_new_from_cube(cube_t* cube) {
+  node_t *node = node_new();
+  memcpy(node->cube, cube, sizeof(cube_t));
+  return node;
+}
+
 node_t *node_cpy(node_t *node) {
   node_t *ret = node_new();
   memcpy(ret->cube, node->cube, sizeof(cube_t));
@@ -95,10 +101,11 @@ void node_destroy(node_t *node) {
   free(node);
 }
 
+///////////////////////////////// BFS /////////////////////////
+
 bool bfs_solve_internal(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, std::queue<node_t *> q[2]) {
 
-  node_t *root = node_new();
-  memcpy(root->cube, cube, sizeof(cube_t));
+  node_t *root = node_new_from_cube(cube);
 
   q[0].push(root);
 
@@ -144,4 +151,110 @@ bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   }
 
   return ret;
+}
+
+/////////////////////////// IDA ////////////////////////////////
+
+int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound);
+
+int h(node_t *node, int d) {
+  return MAX_DEPTH - d;
+}
+
+int cost(node_t *n1, node_t *n2) {
+  return 1;
+}
+
+// Pseudo code from wikipedia
+#define FOUND 0
+#define INFTY 0x7FFFFFFF
+bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+  // TODO(tianez): trade extra computation to save memory:
+  // redefine path into a list of ints (ops) and save only 1 cube:
+  // likely not needed since IDA is memory constrained
+
+  node_t *root = node_new_from_cube(cube);
+
+  node_t *path[MAX_DEPTH];
+  int d;
+  int bound;
+
+  path[0] = root;
+  d = 0;
+  bound = 1; // TODO(tianez): guessed, start small for iterative deepening // h(root, d);
+
+  CubeSet cubes;
+  while (1) {
+    int t = search(path, &d, cubes, 0, bound);
+    if (t == FOUND) {
+      node_t *n = path[d];
+      *num_steps = n->d;
+      memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
+      return true;
+    }
+    if (t == INFTY) {
+      return false;
+    }
+    bound = t;
+  }
+
+  // TODO(tianez): free entire path from 0 to d (inc)
+
+  return false;
+}
+
+bool cube_visited(const CubeSet &cubes, cube_t *cube) {
+  return cubes.find(*cube) != cubes.end();
+}
+
+int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
+  node_t *node = path[*d];
+  int f = g + h(node, *d);
+
+  if (f > bound) {
+    return f;
+  }
+
+  if (test_converge(node->cube)) {
+    return FOUND;
+  }
+
+  int min = INFTY;
+
+  for(int op=0; op<TRANSITION_COUNT; op++) {
+    cube_t *c = cube_cpy(node->cube);
+
+    transition[op](c); // succ->cube
+    if (cube_visited(cubes, c)) {
+      free(c);
+      continue;
+    }
+
+    node_t *n = node_new_from_cube(c);
+    n->steps[n->d] = op;
+    n->d++;
+
+    // path.push(succ)
+    (*d)++;
+    path[*d] = n;
+    cubes.emplace(*c);
+
+    int t = search(path, d, cubes, g + cost(node, n), bound);
+
+    if (t == FOUND) {
+      return FOUND;
+    }
+
+    if (t < min) {
+      min = t;
+    }
+
+    // path.pop()
+    free(path[*d]);
+    (*d)--;
+    auto it = cubes.find(*c);
+    cubes.erase(it);
+  }
+
+  return 0;
 }

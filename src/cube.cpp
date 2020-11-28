@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "cube.h"
 
@@ -239,6 +240,12 @@ cube_t *cube_new(bool init) {
   }
 
   return cube;
+}
+
+cube_t *cube_cpy(cube_t *cube) {
+  cube_t *c = cube_new(false);
+  memcpy(c, cube, sizeof(cube_t));
+  return c;
 }
 
 void bin_color(COLOR color, int count[6]) {
