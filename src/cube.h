@@ -22,8 +22,7 @@
 
 #define DIM 3
 
-class Cube {
-public:
+struct Cube {
   // TODO(tianez): smaller size
   COLOR f[DIM][DIM];
   COLOR b[DIM][DIM];

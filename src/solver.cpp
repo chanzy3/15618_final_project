@@ -158,7 +158,9 @@ bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound);
 
 int h(node_t *node, int d) {
-  return MAX_DEPTH - d;
+  // TODO(tianez): guessed, start small for iterative deepening
+  // return MAX_DEPTH - d;
+  return 1;
 }
 
 int cost(node_t *n1, node_t *n2) {
@@ -180,16 +182,21 @@ bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   int bound;
 
   path[0] = root;
-  d = 0;
-  bound = 1; // TODO(tianez): guessed, start small for iterative deepening // h(root, d);
+  d = 1;
+  bound = h(root, d);
 
   CubeSet cubes;
   while (1) {
     int t = search(path, &d, cubes, 0, bound);
+    printf("t: %d\n\n", t);
     if (t == FOUND) {
-      node_t *n = path[d];
+      node_t *n = path[d - 1];
       *num_steps = n->d;
       memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
+      for (int i=0; i<MAX_DEPTH; i++) {
+        printf("%d ", solution[i]);
+      }
+      printf("\n");
       return true;
     }
     if (t == INFTY) {
@@ -208,8 +215,8 @@ bool cube_visited(const CubeSet &cubes, cube_t *cube) {
 }
 
 int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
-  node_t *node = path[*d];
-  int f = g + h(node, *d);
+  node_t *node = path[(*d) - 1];
+  int f = g + h(node, (*d) - 1);
 
   if (f > bound) {
     return f;
@@ -222,21 +229,22 @@ int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
   int min = INFTY;
 
   for(int op=0; op<TRANSITION_COUNT; op++) {
-    cube_t *c = cube_cpy(node->cube);
+    node_t *n = node_cpy(node);
+    cube_t *c = n->cube;
 
     transition[op](c); // succ->cube
     if (cube_visited(cubes, c)) {
       free(c);
+      free(n);
       continue;
     }
 
-    node_t *n = node_new_from_cube(c);
     n->steps[n->d] = op;
     n->d++;
 
     // path.push(succ)
-    (*d)++;
     path[*d] = n;
+    (*d)++;
     cubes.emplace(*c);
 
     int t = search(path, d, cubes, g + cost(node, n), bound);
@@ -250,11 +258,15 @@ int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
     }
 
     // path.pop()
-    free(path[*d]);
     (*d)--;
     auto it = cubes.find(*c);
-    cubes.erase(it);
+    if (it != cubes.end()) {
+      cubes.erase(it);
+    }
+
+    free(c);
+    free(n);
   }
 
-  return 0;
+  return min;
 }
