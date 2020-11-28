@@ -345,13 +345,41 @@ bool test_converge(cube_t *c) {
 void ppp0(COLOR s[DIM][DIM]) {
   for (int i=0; i<DIM; i++) {
     for (int j=0; j<DIM; j++) {
-      printf("%d ", s[i][j]);
+      printf("%2d ", s[i][j]);
     }
     printf("\n");
   }
 }
 
 void ppp(cube_t *cube) {
+  printf("F%9.9s| B%9.9s| L%9.9s| R%9.9s| U%9.9s| D\n", "", "", "", "", "");
+  for (int i=0; i<DIM; i++) {
+    for (int j=0; j<DIM; j++) {
+      printf("%2d ", cube->f[i][j]);
+    }
+    printf(" | ");
+    for (int j=0; j<DIM; j++) {
+      printf("%2d ", cube->b[i][j]);
+    }
+    printf(" | ");
+    for (int j=0; j<DIM; j++) {
+      printf("%2d ", cube->l[i][j]);
+    }
+    printf(" | ");
+    for (int j=0; j<DIM; j++) {
+      printf("%2d ", cube->r[i][j]);
+    }
+    printf(" | ");
+    for (int j=0; j<DIM; j++) {
+      printf("%2d ", cube->u[i][j]);
+    }
+    printf(" | ");
+    for (int j=0; j<DIM; j++) {
+      printf("%2d ", cube->d[i][j]);
+    }
+    printf("\n");
+  }
+  /*
   printf("F\n");
   ppp0(cube->f);
   printf("B\n");
@@ -364,5 +392,6 @@ void ppp(cube_t *cube) {
   ppp0(cube->u);
   printf("D\n");
   ppp0(cube->d);
+   */
 }
 
