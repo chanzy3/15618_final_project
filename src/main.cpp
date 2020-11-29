@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
     case 'O':
       while (fscanf(f, "%c", &operation) == 1) {
         if (operation >= 'B' && operation <= 'Z') {
-          apply(cube, operation);
+          _apply(cube, operation);
         }
       }
       break;
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
   // start execution and benchmark /////////////////////////////////////////////
   int solution[MAX_DEPTH];
   int num_steps;
-
+  ppp(cube);
   // time the execution
   double start_time = CycleTimer::currentSeconds();
   bool solution_found = bfs_solve(cube, solution, &num_steps);
@@ -96,10 +96,13 @@ int main(int argc, char** argv) {
 
   for (int i=0; i<num_steps; i++) {
     fprintf(stdout, "%s ", to_string(solution[i]));
+    // apply(cube, 'F3');
+    apply(cube, to_string(solution[i]));
   }
   fprintf(stdout, "\n");
-
+  //ppp0(cube);
   // print timing
+  ppp(cube);
   double overallDuration = end_time - start_time;
   fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
 }

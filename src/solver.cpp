@@ -10,14 +10,7 @@
 
 #include "solver.h"
 
-#define TRANSITION_COUNT 18
-// transition functions
-void (*transition[TRANSITION_COUNT])(cube_t *) =
-    {
-        F1, B1, L1, R1, U1, D1,
-        F2, B2, L2, R2, U2, D2,
-        F3, B3, L3, R3, U3, D3,
-    };
+
 
 const char *to_string(int operation) {
   switch(operation) {
@@ -82,6 +75,8 @@ node_t *node_new() {
   return node;
 }
 
+
+
 node_t *node_cpy(node_t *node) {
   node_t *ret = node_new();
   memcpy(ret->cube, node->cube, sizeof(cube_t));
@@ -142,6 +137,11 @@ bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
       q[i].pop();
     }
   }
-
+  //ppp(cube);
   return ret;
+}
+
+
+bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+
 }

@@ -5,8 +5,19 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstring>
 
 #include "cube.h"
+
+//TODO: impelement following two functions(chengzhh)
+uint8_t getCornerIndex(const cube_t* cube, CORNER c) {
+  return 0;
+}
+
+uint8_t getCornerOrientation(const cube_t* cube, CORNER c) {
+  return 0;
+}
+
 
 void rotate1(COLOR s[DIM][DIM]) {
   COLOR tmp = s[0][0];
@@ -186,7 +197,7 @@ void R3(cube_t *c) { R1(c); R1(c); R1(c); }
 void U3(cube_t *c) { U1(c); U1(c); U1(c); }
 void D3(cube_t *c) { D1(c); D1(c); D1(c); }
 
-void apply(cube_t *cube, char operation) {
+void _apply(cube_t *cube, char operation) {
   switch(operation) {
     case 'F':
       F1(cube);
@@ -212,6 +223,16 @@ void apply(cube_t *cube, char operation) {
   }
 }
 
+void apply(cube_t *cube, const char *operation) {
+  if (strlen(operation) == 1) _apply(cube, operation[0]);
+  else {
+    int num = (int)(operation[1]);
+    char op = operation[0];
+    for (int i = 0; i < num; i++) _apply(cube, op);
+  }
+}
+
+
 ////////////////////////////
 
 void fill(COLOR s[DIM][DIM], COLOR c) {
@@ -222,6 +243,19 @@ void fill(COLOR s[DIM][DIM], COLOR c) {
   }
 }
 
+cube_t *cube_cpy(cube_t *iCube) {
+  cube_t *cube_new = (cube_t *) malloc(sizeof(cube_t));
+  if (cube_new == NULL) {
+    perror("malloc node");
+    exit(1);
+  }
+  memcpy(cube_new, iCube, sizeof(cube_t));
+}
+
+void cube_destroy(cube_t *iCube) {
+  free(iCube);
+}
+
 cube_t *cube_new(bool init) {
   cube_t *cube = (cube_t *) malloc(sizeof(cube_t));
   if (cube == NULL) {
@@ -230,12 +264,12 @@ cube_t *cube_new(bool init) {
   }
 
   if (init) {
-    fill(cube->f, CA);
-    fill(cube->b, CB);
-    fill(cube->l, CC);
-    fill(cube->r, CD);
-    fill(cube->u, CE);
-    fill(cube->d, CF);
+    fill(cube->f, COLOR::BLUE);
+    fill(cube->b, COLOR::RED);
+    fill(cube->l, COLOR::GREEN);
+    fill(cube->r, COLOR::ORANGE);
+    fill(cube->u, COLOR::WHITE);
+    fill(cube->d, COLOR::YELLOW);
   }
 
   return cube;
@@ -243,22 +277,22 @@ cube_t *cube_new(bool init) {
 
 void bin_color(COLOR color, int count[6]) {
   switch (color) {
-    case CA:
+    case COLOR::BLUE:
       count[0]++;
       break;
-    case CB:
+    case COLOR::RED:
       count[1]++;
       break;
-    case CC:
+    case COLOR::GREEN:
       count[2]++;
       break;
-    case CD:
+    case COLOR::ORANGE:
       count[3]++;
       break;
-    case CE:
+    case COLOR::WHITE:
       count[4]++;
       break;
-    case CF:
+    case COLOR::YELLOW:
       count[5]++;
       break;
   }
