@@ -13,12 +13,22 @@
 #include <unordered_set>
 
 #define COLOR int
-#define CA 2
-#define CB 3
-#define CC 5
-#define CD 7
-#define CE 11
-#define CF 13
+#define CORNER uint8_t // TODO(tianez): fix
+#define ULB 0
+#define URB 1
+#define URF 2
+#define ULF 3
+#define DLF 4
+#define DLB 5
+#define DRB 6
+#define DRF 7
+
+#define CW 2
+#define CY 3
+#define CB 5
+#define CG 7
+#define CR 11
+#define CO 13
 
 #define DIM 3
 
@@ -30,6 +40,16 @@ struct Cube {
   COLOR r[DIM][DIM];
   COLOR u[DIM][DIM];
   COLOR d[DIM][DIM];
+
+  uint8_t corner_orientation[8]; // 8 corners
+
+  uint8_t getCornerIndex(CORNER ind) const;
+  uint8_t getCornerOrientation(CORNER ind) const;
+
+  inline void updateCornerOrientationX(CORNER ind);
+  inline void updateCornerOrientationZ(CORNER ind);
+private:
+  inline void getCorner(CORNER ind, COLOR &a, COLOR &b, COLOR &c) const;
 };
 
 inline bool operator==(const Cube& lhs, const Cube& rhs) {

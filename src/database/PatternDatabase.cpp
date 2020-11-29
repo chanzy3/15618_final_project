@@ -46,7 +46,7 @@ namespace paracube
    * @param numMoves The number of moves to get to this state (must be fewer
    * than 15).
    */
-  bool PatternDatabase::setNumMoves(const RubiksCube& cube, const uint8_t numMoves)
+  bool PatternDatabase::setNumMoves(const Cube& cube, const uint8_t numMoves)
   {
     return this->setNumMoves(this->getDatabaseIndex(cube), numMoves);
   }
@@ -68,7 +68,7 @@ namespace paracube
    * state has not been set.
    * @param cube A cube instance.
    */
-  uint8_t PatternDatabase::getNumMoves(const RubiksCube& cube) const
+  uint8_t PatternDatabase::getNumMoves(const Cube& cube) const
   {
     return this->getNumMoves(this->getDatabaseIndex(cube));
   }
@@ -89,10 +89,10 @@ namespace paracube
    * Get the number of moves it takes to get to a scrambled cube state using a
    * cube instance.
    */
-  uint8_t PatternDatabase::getNumMovesEx(const RubiksCube& cube,
+  uint8_t PatternDatabase::getNumMovesEx(const Cube& cube,
                                          const uint8_t boundHint, const uint8_t depthHint) const
   {
-    return this->getNumMovesEx(this->getDatabaseIndex(cube));
+    return this->getNumMovesEx(this->getDatabaseIndex(cube), boundHint, depthHint);
   }
 
   /**
@@ -149,12 +149,14 @@ namespace paracube
 
     size_t fileSize = reader.tellg();
 
+    printf("fileSize %zu, storageSize %zu\n", fileSize, this->database.storageSize());
     if (fileSize != this->database.storageSize())
     {
       reader.close();
       throw RubiksCubeException("Database file appears to be corrupt.  Wrong size.");
     }
 
+    printf("!X!\n");
     reader.seekg(0, std::ios::beg);
     reader.read(
         reinterpret_cast<char*>(this->database.data()),
@@ -162,6 +164,7 @@ namespace paracube
     reader.close();
     this->numItems = this->size;
 
+    printf("!Y!\n");
     return true;
   }
 

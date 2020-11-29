@@ -29,24 +29,36 @@ namespace paracube
   /**
    * Given a cube, get an index into the pattern database.
    */
-  uint32_t CornerPatternDatabase::getDatabaseIndex(const RubiksCube& cube) const
+  uint32_t CornerPatternDatabase::getDatabaseIndex(const Cube& cube) const
   {
-    typedef RubiksCubeIndexModel::CORNER CORNER;
+    // typedef RubiksCubeIndexModel::CORNER CORNER;
 
-    const RubiksCubeIndexModel& iCube = static_cast<const RubiksCubeIndexModel&>(cube);
+    // const RubiksCubeIndexModel& iCube = static_cast<const RubiksCubeIndexModel&>(cube);
+    const cube_t &iCube = cube;
 
     // The permutation of the 8 corners.
     perm_t cornerPerm =
     {
-      iCube.getCornerIndex(CORNER::ULB),
-      iCube.getCornerIndex(CORNER::URB),
-      iCube.getCornerIndex(CORNER::URF),
-      iCube.getCornerIndex(CORNER::ULF),
-      iCube.getCornerIndex(CORNER::DLF),
-      iCube.getCornerIndex(CORNER::DLB),
-      iCube.getCornerIndex(CORNER::DRB),
-      iCube.getCornerIndex(CORNER::DRF)
+      iCube.getCornerIndex(ULB),
+      iCube.getCornerIndex(URB),
+      iCube.getCornerIndex(URF),
+      iCube.getCornerIndex(ULF),
+      iCube.getCornerIndex(DLF),
+      iCube.getCornerIndex(DLB),
+      iCube.getCornerIndex(DRB),
+      iCube.getCornerIndex(DRF)
     };
+
+    printf("!ZZ! %d, %d, %d, %d, %d, %d, %d, %d\n",
+           cornerPerm[0],
+           cornerPerm[1],
+           cornerPerm[2],
+           cornerPerm[3],
+           cornerPerm[4],
+           cornerPerm[5],
+           cornerPerm[6],
+           cornerPerm[7]
+           );
 
     // Compute the Lehmer code using Korf's linear algorithm.  It's discussed
     // in his paper, Large-Scale Parallel Breadth-First Search
@@ -99,13 +111,13 @@ namespace paracube
     // the orientation of the 8th, so only 7 need to be stored.
     array<uint8_t, 7> cornerOrientations =
     {
-      iCube.getCornerOrientation(CORNER::ULB),
-      iCube.getCornerOrientation(CORNER::URB),
-      iCube.getCornerOrientation(CORNER::URF),
-      iCube.getCornerOrientation(CORNER::ULF),
-      iCube.getCornerOrientation(CORNER::DLF),
-      iCube.getCornerOrientation(CORNER::DLB),
-      iCube.getCornerOrientation(CORNER::DRB)
+      iCube.getCornerOrientation(ULB),
+      iCube.getCornerOrientation(URB),
+      iCube.getCornerOrientation(URF),
+      iCube.getCornerOrientation(ULF),
+      iCube.getCornerOrientation(DLF),
+      iCube.getCornerOrientation(DLB),
+      iCube.getCornerOrientation(DRB)
     };
 
     // Treat the orientations as a base-3 number, and convert it
@@ -118,6 +130,18 @@ namespace paracube
       cornerOrientations[4] * 9 +
       cornerOrientations[5] * 3 +
       cornerOrientations[6];
+
+    printf("!1! cornerOrientations %d, %d, %d, %d, %d, %d, %d, ?\n",
+           cornerOrientations[0],
+           cornerOrientations[1],
+           cornerOrientations[2],
+           cornerOrientations[3],
+           cornerOrientations[4],
+           cornerOrientations[5],
+           cornerOrientations[6]
+           );
+    printf("!2! index %lu, orientationNum %lu\n", index, orientationNum);
+    printf("!3! %lu\n", index * 2187 + orientationNum);
 
     // Combine the permutation and orientation into a single index.
     // p * 3^7 + o;

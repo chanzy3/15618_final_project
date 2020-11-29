@@ -6,11 +6,10 @@
 #include "cube.h"
 #include "debug.h"
 #include "solver.h"
-#include "cycleTimer.h"
 
 void usage(const char* progname) {
-  printf("Usage: %s [options] solver \n", progname);
-  printf("Valid solvers are: BFS, IDA\n");
+  printf("Usage: %s [options] method \n", progname);
+  printf("Valid methods are: BFS, IDA\n");
   printf("Program Options:\n");
   printf("  -f  --file  <FILENAME>     Input file name\n");
   printf("  -?  --help                 This message\n");
@@ -19,7 +18,7 @@ void usage(const char* progname) {
 int main(int argc, char** argv) {
   char *input_file_name = NULL;
   char *solverName = NULL;
-  enum solver solver = BFS;
+  enum method method = BFS;
 
   // parse commandline options ////////////////////////////////////////////
   int opt;
@@ -51,11 +50,11 @@ int main(int argc, char** argv) {
   solverName = argv[optind];
 
   if (strcmp(solverName, "BFS") == 0) {
-    solver = BFS;
+    method = BFS;
   } else if (strcmp(solverName, "IDA") == 0) {
-    solver = IDA;
+    method = IDA;
   } else {
-    fprintf(stderr, "Unknown solver name (%s)\n", solverName);
+    fprintf(stderr, "Unknown method name (%s)\n", solverName);
     usage(argv[0]);
     return 1;
   }
@@ -98,35 +97,11 @@ int main(int argc, char** argv) {
   }
   // end parsing input file for cube spec //////////////////////////////////////
 
+  Solver solver(method);
+
   // start execution and benchmark /////////////////////////////////////////////
   int solution[MAX_DEPTH];
   int num_steps;
 
-  // time the execution
-  bool solution_found;
-  double start_time = CycleTimer::currentSeconds();
-  switch (solver) {
-    case BFS:
-      solution_found = bfs_solve(cube, solution, &num_steps);
-      break;
-    case IDA:
-      solution_found = ida_solve(cube, solution, &num_steps);
-      break;
-  }
-  double end_time = CycleTimer::currentSeconds();
-
-  // print results
-  if (!solution_found) {
-    fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
-    exit(0);
-  }
-
-  for (int i=0; i<num_steps; i++) {
-    fprintf(stdout, "%s ", to_string(solution[i]));
-  }
-  fprintf(stdout, "\n");
-
-  // print timing
-  double overallDuration = end_time - start_time;
-  fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
+  solver.solve(cube, solution, &num_steps);
 }

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cycleTimer.h"
 #include "solver.h"
 
 #define TRANSITION_COUNT 18
@@ -19,7 +20,7 @@ void (*transition[TRANSITION_COUNT])(cube_t *) =
         F3, B3, L3, R3, U3, D3,
     };
 
-const char *to_string(int operation) {
+const char *Solver::to_string(int operation) {
   switch(operation) {
     case 0:
       return "F1";
@@ -100,6 +101,39 @@ void node_destroy(node_t *node) {
   free(node->cube);
   free(node);
 }
+///////////////// routing ///////////
+
+bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+  // time the execution
+  bool solution_found;
+  double start_time = CycleTimer::currentSeconds();
+  switch (this->method) {
+    case BFS:
+      solution_found = bfs_solve(cube, solution, num_steps);
+      break;
+    case IDA:
+      solution_found = ida_solve(cube, solution, num_steps);
+      break;
+  }
+  double end_time = CycleTimer::currentSeconds();
+
+  // print results
+  if (!solution_found) {
+    fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
+    exit(0);
+  }
+
+  for (int i=0; i<*num_steps; i++) {
+    fprintf(stdout, "%s ", to_string(solution[i]));
+  }
+  fprintf(stdout, "\n");
+
+  // print timing
+  double overallDuration = end_time - start_time;
+  fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
+
+  return solution_found;
+}
 
 ///////////////////////////////// BFS /////////////////////////
 
@@ -138,7 +172,7 @@ bool bfs_solve_internal(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, s
   return false;
 }
 
-bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool Solver::bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   bool ret;
   std::queue<node_t *> q[2];
   ret = bfs_solve_internal(cube, solution, num_steps, q);
@@ -155,12 +189,25 @@ bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 
 /////////////////////////// IDA ////////////////////////////////
 
-int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound);
+int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound);
 
-int h(node_t *node, int d) {
-  // TODO(tianez): guessed, start small for iterative deepening
-  // return MAX_DEPTH - d;
-  return 1;
+char corner_db_input_filename[19] = "data/corner.pdb";
+
+void Solver::ida_init() {
+  if (!corner_db.fromFile(corner_db_input_filename)) {
+    printf("failed to init corner_db from file '%s'\n", corner_db_input_filename);
+    exit(1);
+  }
+}
+
+void Solver::ida_destroy() {
+  // delete this->corner_db;
+}
+
+int h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d) {
+  //
+  // return 1;
+  return corner_db->getNumMoves(*node->cube);
 }
 
 int cost(node_t *n1, node_t *n2) {
@@ -170,7 +217,7 @@ int cost(node_t *n1, node_t *n2) {
 // Pseudo code from wikipedia
 #define FOUND 0
 #define INFTY 0x7FFFFFFF
-bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   // TODO(tianez): trade extra computation to save memory:
   // redefine path into a list of ints (ops) and save only 1 cube:
   // likely not needed since IDA is memory constrained
@@ -183,11 +230,12 @@ bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 
   path[0] = root;
   d = 1;
-  bound = h(root, d);
+  bound = h(&this->corner_db, root, d);
+  printf("initial bound %d\n", bound);
 
   CubeSet cubes;
   while (1) {
-    int t = search(path, &d, cubes, 0, bound);
+    int t = search(&this->corner_db, path, &d, cubes, 0, bound);
     printf("t: %d\n\n", t);
     if (t == FOUND) {
       node_t *n = path[d - 1];
@@ -214,9 +262,10 @@ bool cube_visited(const CubeSet &cubes, cube_t *cube) {
   return cubes.find(*cube) != cubes.end();
 }
 
-int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
+int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
   node_t *node = path[(*d) - 1];
-  int f = g + h(node, (*d) - 1);
+  int f = g + h(corner_db, node, (*d) - 1);
+  printf("search h %d\n", f - g);
 
   if (f > bound) {
     return f;
@@ -233,6 +282,17 @@ int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
     cube_t *c = n->cube;
 
     transition[op](c); // succ->cube
+
+    printf("!!! %s\n", Solver::to_string(op));
+    for (int i=0; i<node->d; i++) {
+      fprintf(stdout, "%s ", Solver::to_string(node->steps[i]));
+    }
+    fprintf(stdout, "\n");
+    printf("=========\n");
+    ppp(node->cube);
+    ppp(c);
+    printf("=========\n");
+
     if (cube_visited(cubes, c)) {
       free(c);
       free(n);
@@ -247,7 +307,7 @@ int search(node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
     (*d)++;
     cubes.emplace(*c);
 
-    int t = search(path, d, cubes, g + cost(node, n), bound);
+    int t = search(corner_db, path, d, cubes, g + cost(node, n), bound);
 
     if (t == FOUND) {
       return FOUND;

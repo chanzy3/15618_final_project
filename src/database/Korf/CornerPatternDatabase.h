@@ -6,7 +6,6 @@
 #define INC_15618_FINAL_PROJECT_CORNERPATTERNDATABASE_H
 
 #include "../../cube.h"
-#include "../../RubiksCubeIndexModel.h"
 #include "../PatternDatabase.h"
 #include <cstdint>
 #include <bitset>
@@ -21,13 +20,13 @@ namespace paracube
   class CornerPatternDatabase : public PatternDatabase
   {
     typedef array<uint8_t, 8> perm_t;
-    typedef RubiksCube::FACE F;
+    // typedef RubiksCube::FACE F;
 
     array<uint8_t, 256> onesCountLookup;
 
   public:
     CornerPatternDatabase();
-    uint32_t getDatabaseIndex(const RubiksCube& cube) const;
+    uint32_t getDatabaseIndex(const Cube& cube) const;
   };
 }
 

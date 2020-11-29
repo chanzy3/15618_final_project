@@ -11,7 +11,16 @@ OBJDIR=objs
 CXX=g++ -m64
 CXXFLAGS=-Wall -O3 -std=c++11 -g
 
-OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cube.o $(OBJDIR)/solver.o
+OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cube.o $(OBJDIR)/solver.o \
+        $(OBJDIR)/util/NibbleArray.o \
+        $(OBJDIR)/util/RubiksCubeException.o \
+        $(OBJDIR)/database/PatternDatabase.o \
+        $(OBJDIR)/database/Korf/CornerPatternDatabase.o \
+        # $(OBJDIR)/database/Korf/EdgeG1PatternDatabase.o \
+        $(OBJDIR)/database/Korf/EdgeG2PatternDatabase.o \
+        $(OBJDIR)/database/Korf/EdgePatternDatabase.o \
+        $(OBJDIR)/database/Korf/EdgePermutationPatternDatabase.o \
+        $(OBJDIR)/database/Korf/KorfPatternDatabase.o \
 
 .PHONY: dirs clean
 
@@ -21,6 +30,9 @@ default: $(EXECUTABLE)
 
 dirs:
 		mkdir -p $(OBJDIR)/
+		mkdir -p $(OBJDIR)/util
+		mkdir -p $(OBJDIR)/database
+		mkdir -p $(OBJDIR)/database/Korf
 
 clean:
 		rm -rf $(OBJDIR) *~ $(EXECUTABLE)

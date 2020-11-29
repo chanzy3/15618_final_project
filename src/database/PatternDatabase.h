@@ -39,12 +39,12 @@ namespace paracube
 
   public:
     PatternDatabase(const size_t size);
-    virtual uint32_t getDatabaseIndex(const RubiksCube& cube) const = 0;
-    virtual bool setNumMoves(const RubiksCube& cube, const uint8_t numMoves);
+    virtual uint32_t getDatabaseIndex(const Cube& cube) const = 0;
+    virtual bool setNumMoves(const Cube& cube, const uint8_t numMoves);
     virtual bool setNumMoves(const uint32_t ind, const uint8_t numMoves);
-    virtual uint8_t getNumMoves(const RubiksCube& cube) const;
+    virtual uint8_t getNumMoves(const Cube& cube) const;
     virtual uint8_t getNumMoves(const uint32_t ind) const;
-    virtual uint8_t getNumMovesEx(const RubiksCube& cube,
+    virtual uint8_t getNumMovesEx(const Cube& cube,
                                   const uint8_t boundHint, const uint8_t depthHint) const;
     virtual uint8_t getNumMovesEx(const uint32_t ind,
                                   const uint8_t boundHint, const uint8_t depthHint) const;
