@@ -92,7 +92,7 @@ namespace paracube
   uint8_t PatternDatabase::getNumMovesEx(const RubiksCube& cube,
                                          const uint8_t boundHint, const uint8_t depthHint) const
   {
-    return this->getNumMoves(this->getDatabaseIndex(cube));
+    return this->getNumMovesEx(this->getDatabaseIndex(cube));
   }
 
   /**
