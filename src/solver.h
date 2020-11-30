@@ -5,6 +5,8 @@
 #ifndef INC_15618_FINAL_PROJECT_SOLVER_H
 #define INC_15618_FINAL_PROJECT_SOLVER_H
 
+#include <stdint.h>
+
 #include "cube.h"
 #include "debug.h"
 #include "database/PatternDatabase.h"

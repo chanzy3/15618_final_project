@@ -8,9 +8,7 @@
 #include "debug.h"
 
 #include <cstring>
-#include <functional>
-#include <vector>
-#include <unordered_set>
+#include <stdint.h>
 
 #define COLOR uint8_t
 #define CORNER uint8_t // TODO(tianez): fix
@@ -70,23 +68,7 @@ inline bool operator==(const Cube& lhs, const Cube& rhs) {
   } \
 }\
 
-struct CubeHash {
-  inline std::size_t operator()(const Cube& c) const {
-    std::hash<COLOR> h;
-    std::size_t ret = 0;
-
-    ACCUMULATE(h, ret, c.f);
-    ACCUMULATE(h, ret, c.b);
-    ACCUMULATE(h, ret, c.l);
-    ACCUMULATE(h, ret, c.r);
-    ACCUMULATE(h, ret, c.u);
-    ACCUMULATE(h, ret, c.d);
-    return ret;
-  }
-};
-
 typedef Cube cube_t;
-using CubeSet = std::unordered_set<Cube, CubeHash>;
 
 cube_t *cube_new(bool init);
 cube_t *cube_cpy(cube_t *cube);

@@ -192,7 +192,7 @@ bool Solver::bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 
 /////////////////////////// IDA ////////////////////////////////
 
-int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound);
+int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
 
 char corner_db_input_filename[19] = "data/corner.pdb";
 
@@ -237,9 +237,8 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   bound = h(&this->corner_db, root, d);
   DBG_PRINTF("initial bound %d\n", bound);
 
-  CubeSet cubes;
   while (1) {
-    int t = search(&this->corner_db, path, &d, cubes, 0, bound);
+    int t = search(&this->corner_db, path, &d, 0, bound);
     DBG_PRINTF("t: %d\n\n", t);
     if (t == FOUND) {
       node_t *n = path[d - 1];
@@ -262,11 +261,7 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   return false;
 }
 
-bool cube_visited(const CubeSet &cubes, cube_t *cube) {
-  return cubes.find(*cube) != cubes.end();
-}
-
-int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
+int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
   node_t *node = path[(*d) - 1];
   int f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search h %d\n", f - g);
@@ -305,21 +300,14 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
     ppp(c);
     DBG_PRINTF("=========\n");
 
-    if (cube_visited(cubes, c)) {
-      free(c);
-      free(n);
-      continue;
-    }
-
     n->steps[n->d] = op;
     n->d++;
 
     // path.push(succ)
     path[*d] = n;
     (*d)++;
-    cubes.emplace(*c);
 
-    int t = search(corner_db, path, d, cubes, g + cost(node, n), bound);
+    int t = search(corner_db, path, d, g + cost(node, n), bound);
 
     if (t == FOUND) {
       return FOUND;
@@ -331,10 +319,6 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
     // path.pop()
     (*d)--;
-    auto it = cubes.find(*c);
-    if (it != cubes.end()) {
-      cubes.erase(it);
-    }
 
     free(c);
     free(n);
