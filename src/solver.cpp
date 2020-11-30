@@ -271,10 +271,12 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
   int f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search h %d\n", f - g);
 
+#ifdef PRINT_PATH
   for (int i=0; i<node->d; i++) {
     printf("%s ", Solver::to_string(node->steps[i]));
   }
   printf("\n");
+#endif
 
 
   if (f > bound) {

@@ -5,6 +5,8 @@
 #ifndef INC_15618_FINAL_PROJECT_DEBUG_H
 #define INC_15618_FINAL_PROJECT_DEBUG_H
 
+// #define PRINT_PATH
+
 // #define DEBUG
 #define VALID_CHECK
 
