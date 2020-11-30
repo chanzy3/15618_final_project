@@ -40,7 +40,7 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
       // TODO(tianez): assumed implicit barrier for all threads
     }
 
-    DBG_PRINTF("t: %d\n\n", t);
+    DBG_PRINTF("iteration_t: %d\n\n", iteration_t);
     if (iteration_t == FOUND) {
       node_t *n = path[d - 1];
       *num_steps = n->d;
@@ -70,6 +70,7 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
   DBG_PRINTF("search_omp_para h %d\n", f - g);
 
 #ifdef PRINT_PATH
+  printf("para: ");
   for (int i=0; i<node->d; i++) {
     printf("%s ", Solver::to_string(node->steps[i]));
   }
@@ -152,6 +153,7 @@ int SolverIdaOmp::search_omp(paracube::CornerPatternDatabase *corner_db, node_t 
   DBG_PRINTF("search_omp h %d\n", f - g);
 
 #ifdef PRINT_PATH
+  printf("norm: ");
   for (int i=0; i<node->d; i++) {
     printf("%s ", Solver::to_string(node->steps[i]));
   }
