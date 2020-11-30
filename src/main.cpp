@@ -7,6 +7,9 @@
 #include "cube.h"
 #include "debug.h"
 #include "solver.h"
+#include "solver_bfs.h"
+#include "solver_ida_omp.h"
+#include "solver_ida_seq.h"
 
 void usage(const char* progname) {
   printf("Usage: %s [options] method \n", progname);
@@ -62,8 +65,6 @@ int main(int argc, char** argv) {
     method = IDA_SEQ;
   } else if (strcmp(solverName, "IDA_OMP") == 0) {
     method = IDA_OMP;
-    omp_set_num_threads(num_omp_threads);
-    fprintf(stdout, "Num omp threads: %d\n", omp_get_num_threads());
   } else {
     fprintf(stderr, "Unknown method name (%s)\n", solverName);
     usage(argv[0]);
@@ -108,11 +109,16 @@ int main(int argc, char** argv) {
   }
   // end parsing input file for cube spec //////////////////////////////////////
 
-  Solver solver(method);
-
   // start execution and benchmark /////////////////////////////////////////////
-  int solution[MAX_DEPTH];
-  int num_steps;
-
-  solver.solve(cube, solution, &num_steps);
+  switch (method) {
+    case BFS:
+      SolverBfs().timedSolve(cube);
+      break;
+    case IDA_SEQ:
+      SolverIdaSeq().timedSolve(cube);
+      break;
+    case IDA_OMP:
+      SolverIdaOmp(num_omp_threads).timedSolve(cube);
+      break;
+  }
 }

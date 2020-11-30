@@ -3,8 +3,6 @@
 //
 
 #include <memory>
-#include <omp.h>
-#include <queue>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,14 +10,34 @@
 #include "cycleTimer.h"
 #include "solver.h"
 
-#define TRANSITION_COUNT 18
-// transition functions
-void (*transition[TRANSITION_COUNT])(cube_t *) =
-    {
-        F1, B1, L1, R1, U1, D1,
-        F2, B2, L2, R2, U2, D2,
-        F3, B3, L3, R3, U3, D3,
-    };
+bool Solver::timedSolve(cube_t *cube) {
+  int solution[MAX_DEPTH];
+  int num_steps;
+
+  // time the execution
+  bool solution_found;
+  double start_time = CycleTimer::currentSeconds();
+  solution_found = solve(cube, solution, &num_steps);
+  double end_time = CycleTimer::currentSeconds();
+
+  // print results
+  if (!solution_found) {
+    fprintf(stderr, "did not find solution\n");
+    exit(0);
+  }
+
+  for (int i=0; i<num_steps; i++) {
+    fprintf(stdout, "%s ", to_string(solution[i]));
+  }
+  fprintf(stdout, "\n");
+
+  // print timing
+  double overallDuration = end_time - start_time;
+  fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
+
+  return solution_found;
+}
+
 
 const char *Solver::to_string(int operation) {
   switch(operation) {
@@ -64,13 +82,6 @@ const char *Solver::to_string(int operation) {
   }
 }
 
-// search node
-typedef struct node {
-  cube_t *cube;
-  int steps[MAX_DEPTH];
-  int d;
-} node_t;
-
 node_t *node_new() {
   node_t *node = (node_t *) malloc(sizeof(node_t));
   if (node == NULL) {
@@ -102,441 +113,4 @@ void node_destroy(node_t *node) {
   free(node->cube);
   free(node);
 }
-///////////////// routing ///////////
 
-bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
-  // time the execution
-  bool solution_found;
-  double start_time = CycleTimer::currentSeconds();
-  switch (this->method) {
-    case BFS:
-      solution_found = bfs_solve(cube, solution, num_steps);
-      break;
-    case IDA_SEQ:
-      solution_found = ida_solve_seq(cube, solution, num_steps);
-      break;
-    case IDA_OMP:
-      solution_found = ida_solve_omp(cube, solution, num_steps);
-      break;
-    default:
-      fprintf(stderr, "unknown method %d\n", this->method);
-      exit(1);
-  }
-  double end_time = CycleTimer::currentSeconds();
-
-  // print results
-  if (!solution_found) {
-    fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
-    exit(0);
-  }
-
-  for (int i=0; i<*num_steps; i++) {
-    fprintf(stdout, "%s ", to_string(solution[i]));
-  }
-  fprintf(stdout, "\n");
-
-  // print timing
-  double overallDuration = end_time - start_time;
-  fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
-
-  return solution_found;
-}
-
-///////////////////////////////// BFS /////////////////////////
-
-bool bfs_solve_internal(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, std::queue<node_t *> q[2]) {
-
-  node_t *root = node_new_from_cube(cube);
-
-  q[0].push(root);
-
-  for (int iter=0; iter<DEPTH_LIMIT; iter++) {
-    std::queue<node_t *> &from = q[iter%2];
-    std::queue<node_t *> &to = q[(iter+1) % 2];
-
-    node_t *n_old, *n;
-    while (from.size() > 0) {
-      n_old = from.front();
-      from.pop();
-      for (int op=0; op<TRANSITION_COUNT; op++) {
-        n = node_cpy(n_old);
-
-        n->steps[n->d] = op;
-        n->d++;
-        transition[op](n->cube);
-        if (test_converge(n->cube)) {
-          *num_steps = n->d;
-          memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
-          return true;
-        }
-        to.push(n);
-      }
-
-      node_destroy(n_old);
-    }
-  }
-
-  return false;
-}
-
-bool Solver::bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
-  bool ret;
-  std::queue<node_t *> q[2];
-  ret = bfs_solve_internal(cube, solution, num_steps, q);
-
-  for (int i=0; i<2; i++) {
-    while (q[i].size() != 0) {
-      node_destroy(q[i].front());
-      q[i].pop();
-    }
-  }
-
-  return ret;
-}
-
-//////////////////////////// IDA HELPERS ////////////////////////
-
-char corner_db_input_filename[19] = "data/corner.pdb";
-
-void Solver::ida_init() {
-  if (!corner_db.fromFile(corner_db_input_filename)) {
-    printf("failed to init corner_db from file '%s'\n", corner_db_input_filename);
-    exit(1);
-  }
-}
-
-void Solver::ida_destroy() {
-  // delete this->corner_db;
-}
-
-int h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d) {
-  //
-  // return 1;
-  DBG_CUBE(node->cube);
-  return corner_db->getNumMoves(*node->cube);
-}
-
-int cost(node_t *n1, node_t *n2) {
-  return 1;
-}
-
-// Pseudo code from wikipedia
-#define FOUND 0 // TODO(tianez): must be smaller than OTHERS_FOUND
-#define INFTY 0x7FFFFFFF
-
-/////////////////////////// IDA SEQ ////////////////////////////////
-
-int search_seq(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
-
-bool Solver::ida_solve_seq(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
-  // TODO(tianez): trade extra computation to save memory:
-  // redefine path into a list of ints (ops) and save only 1 cube:
-  // likely not needed since IDA is memory constrained
-
-  node_t *root = node_new_from_cube(cube);
-
-  node_t *path[MAX_DEPTH];
-  int d;
-  int bound;
-
-  path[0] = root;
-  d = 1;
-  bound = h(&this->corner_db, root, d);
-  DBG_PRINTF("initial bound %d\n", bound);
-
-  while (1) {
-    int t = search_seq(&this->corner_db, path, &d, 0, bound);
-    DBG_PRINTF("t: %d\n\n", t);
-    if (t == FOUND) {
-      node_t *n = path[d - 1];
-      *num_steps = n->d;
-      memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
-      for (int i=0; i<MAX_DEPTH; i++) {
-        DBG_PRINTF("%d ", solution[i]);
-      }
-      DBG_PRINTF("\n");
-      return true;
-    }
-    if (t == INFTY) {
-      return false;
-    }
-    bound = t;
-  }
-
-  // TODO(tianez): free entire path from 0 to d (inc)
-
-  return false;
-}
-
-int search_seq(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
-  node_t *node = path[(*d) - 1];
-  int f = g + h(corner_db, node, (*d) - 1);
-  DBG_PRINTF("search_seq h %d\n", f - g);
-
-#ifdef PRINT_PATH
-  for (int i=0; i<node->d; i++) {
-    printf("%s ", Solver::to_string(node->steps[i]));
-  }
-  printf("\n");
-#endif
-
-
-  if (f > bound) {
-    return f;
-  }
-
-  if (test_converge(node->cube)) {
-    return FOUND;
-  }
-
-  int min = INFTY;
-
-  for(int op=0; op<TRANSITION_COUNT; op++) {
-    node_t *n = node_cpy(node);
-    cube_t *c = n->cube;
-
-    transition[op](c); // succ->cube
-
-    DBG_PRINTF("!!! %s\n", Solver::to_string(op));
-    for (int i=0; i<node->d; i++) {
-      DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
-    }
-    DBG_PRINTF("\n");
-    DBG_PRINTF("=========\n");
-    ppp(node->cube);
-    ppp(c);
-    DBG_PRINTF("=========\n");
-
-    n->steps[n->d] = op;
-    n->d++;
-
-    // path.push(succ)
-    path[*d] = n;
-    (*d)++;
-
-    int t = search_seq(corner_db, path, d, g + cost(node, n), bound);
-
-    if (t == FOUND) {
-      return FOUND;
-    }
-
-    if (t < min) {
-      min = t;
-    }
-
-    // path.pop()
-    (*d)--;
-
-    free(c);
-    free(n);
-  }
-
-  return min;
-}
-
-////////////////////////// IDA OMP ////////////////////////////
-
-void search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
-int search_omp(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
-
-int iteration_t;
-int depth;
-
-bool Solver::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
-  // TODO(tianez): trade extra computation to save memory:
-  // redefine path into a list of ints (ops) and save only 1 cube:
-  // likely not needed since IDA is memory constrained
-
-  node_t *root = node_new_from_cube(cube);
-
-  node_t *path[MAX_DEPTH];
-  int d;
-  int bound;
-
-  path[0] = root;
-  d = 1;
-  bound = h(&this->corner_db, root, d);
-  DBG_PRINTF("initial bound %d\n", bound);
-  while (1) {
-#pragma omp parallel
-    {
-#pragma omp single
-      {
-        search_omp_para(&this->corner_db, path, &d, 0, bound);
-      }
-      // TODO(tianez): assumed implicit barrier for all threads
-    }
-
-    DBG_PRINTF("t: %d\n\n", t);
-    if (iteration_t == FOUND) {
-      node_t *n = path[d - 1];
-      *num_steps = n->d;
-      memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
-      for (int i = 0; i < MAX_DEPTH; i++) {
-        DBG_PRINTF("%d ", solution[i]);
-      }
-      DBG_PRINTF("\n");
-      return true;
-    }
-    if (iteration_t == INFTY) {
-      return false;
-    }
-    bound = iteration_t;
-  }
-
-  // TODO(tianez): free entire path from 0 to d (inc)
-
-  return false;
-}
-
-bool found = false;
-
-void search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
-  node_t *node = path[(*d) - 1];
-  int f = g + h(corner_db, node, (*d) - 1);
-  DBG_PRINTF("search_omp_para h %d\n", f - g);
-
-#ifdef PRINT_PATH
-  for (int i=0; i<node->d; i++) {
-    printf("%s ", Solver::to_string(node->steps[i]));
-  }
-  printf("\n");
-#endif
-
-  if (f > bound) {
-    iteration_t = f;
-    return;
-    // return f;
-  }
-
-  if (test_converge(node->cube)) {
-    iteration_t = FOUND;
-    return;
-    // return FOUND;
-  }
-
-  for(int op=0; op<TRANSITION_COUNT; op++) {
-    node_t **private_path;
-    int *private_d;
-
-    private_path = (node_t **) malloc(MAX_DEPTH * sizeof(node_t *));
-    memcpy(private_path, path, MAX_DEPTH * sizeof(node_t *)); // TODO(tianez): can be *d * private_path
-    private_d = (int *) malloc(sizeof(int));
-
-#pragma omp task firstprivate(op, private_path, private_d) shared(node, g, bound)
-    {
-      node_t *n = node_cpy(node);
-      cube_t *c = n->cube;
-
-      transition[op](c); // succ->cube
-
-      /*
-      DBG_PRINTF("!!! %s\n", Solver::to_string(op));
-      for (int i=0; i<node->d; i++) {
-        DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
-      }
-      DBG_PRINTF("\n");
-      DBG_PRINTF("=========\n");
-      ppp(node->cube);
-      ppp(c);
-      DBG_PRINTF("=========\n");
-       */
-
-      n->steps[n->d] = op;
-      n->d++;
-
-      // path.push(succ)
-      private_path[*private_d] = n;
-      (*private_d)++;
-
-      int t = search_omp(corner_db, private_path, private_d, g + cost(node, n), bound);
-
-#pragma omp critical
-      {
-        if (t == FOUND) {
-          iteration_t = t; // TODO(tianez): prob don't need this, as we have FOUND being the smallest possible t
-        }
-
-        if (t < iteration_t) {
-          iteration_t = t;
-        }
-      }
-
-      // path.pop()
-      (*private_d)--;
-
-      free(c);
-      free(n);
-      free(private_path);
-      free(private_d);
-    }
-  }
-}
-
-int search_omp(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
-  node_t *node = path[(*d) - 1];
-  int f = g + h(corner_db, node, (*d) - 1);
-  DBG_PRINTF("search_omp h %d\n", f - g);
-
-#ifdef PRINT_PATH
-  for (int i=0; i<node->d; i++) {
-    printf("%s ", Solver::to_string(node->steps[i]));
-  }
-  printf("\n");
-#endif
-
-
-  if (f > bound) {
-    return f;
-  }
-
-  if (test_converge(node->cube)) {
-    return FOUND;
-  }
-
-  int min = INFTY;
-
-  for(int op=0; op<TRANSITION_COUNT; op++) {
-    node_t *n = node_cpy(node);
-    cube_t *c = n->cube;
-
-    transition[op](c); // succ->cube
-
-    /*
-    DBG_PRINTF("!!! %s\n", Solver::to_string(op));
-    for (int i=0; i<node->d; i++) {
-      DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
-    }
-    DBG_PRINTF("\n");
-    DBG_PRINTF("=========\n");
-    ppp(node->cube);
-    ppp(c);
-    DBG_PRINTF("=========\n");
-     */
-
-    n->steps[n->d] = op;
-    n->d++;
-
-    // path.push(succ)
-    path[*d] = n;
-    (*d)++;
-
-    int t = search_omp(corner_db, path, d, g + cost(node, n), bound);
-
-    if (t == FOUND) {
-      return FOUND;
-    }
-
-    if (t < min) {
-      min = t;
-    }
-
-    // path.pop()
-    (*d)--;
-
-    free(c);
-    free(n);
-  }
-
-  return min;
-}
