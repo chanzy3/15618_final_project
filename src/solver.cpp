@@ -3,6 +3,7 @@
 //
 
 #include <memory>
+#include <omp.h>
 #include <queue>
 #include <stdio.h>
 #include <stdlib.h>
@@ -192,6 +193,7 @@ bool Solver::bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 
 /////////////////////////// IDA ////////////////////////////////
 
+void search_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
 int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
 
 char corner_db_input_filename[19] = "data/corner.pdb";
@@ -218,8 +220,11 @@ int cost(node_t *n1, node_t *n2) {
   return 1;
 }
 
+int iteration_t;
+int depth;
+
 // Pseudo code from wikipedia
-#define FOUND 0
+#define FOUND 0 // TODO(tianez): must be smaller than OTHERS_FOUND
 #define INFTY 0x7FFFFFFF
 bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   // TODO(tianez): trade extra computation to save memory:
@@ -236,29 +241,120 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   d = 1;
   bound = h(&this->corner_db, root, d);
   DBG_PRINTF("initial bound %d\n", bound);
-
   while (1) {
-    int t = search(&this->corner_db, path, &d, 0, bound);
+#pragma omp parallel
+    {
+#pragma omp single
+      {
+        search_para(&this->corner_db, path, &d, 0, bound);
+      }
+      // TODO(tianez): assumed implicit barrier for all threads
+    }
+
     DBG_PRINTF("t: %d\n\n", t);
-    if (t == FOUND) {
+    if (iteration_t == FOUND) {
       node_t *n = path[d - 1];
       *num_steps = n->d;
       memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
-      for (int i=0; i<MAX_DEPTH; i++) {
+      for (int i = 0; i < MAX_DEPTH; i++) {
         DBG_PRINTF("%d ", solution[i]);
       }
       DBG_PRINTF("\n");
       return true;
     }
-    if (t == INFTY) {
+    if (iteration_t == INFTY) {
       return false;
     }
-    bound = t;
+    bound = iteration_t;
   }
 
   // TODO(tianez): free entire path from 0 to d (inc)
 
   return false;
+}
+
+bool found = false;
+
+void search_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
+  node_t *node = path[(*d) - 1];
+  int f = g + h(corner_db, node, (*d) - 1);
+  DBG_PRINTF("search_para h %d\n", f - g);
+
+#ifdef PRINT_PATH
+  for (int i=0; i<node->d; i++) {
+    printf("%s ", Solver::to_string(node->steps[i]));
+  }
+  printf("\n");
+#endif
+
+  if (f > bound) {
+    iteration_t = f;
+    return;
+    // return f;
+  }
+
+  if (test_converge(node->cube)) {
+    iteration_t = FOUND;
+    return;
+    // return FOUND;
+  }
+
+  for(int op=0; op<TRANSITION_COUNT; op++) {
+    node_t **private_path;
+    int *private_d;
+
+    private_path = (node_t **) malloc(MAX_DEPTH * sizeof(node_t *));
+    memcpy(private_path, path, MAX_DEPTH * sizeof(node_t *)); // TODO(tianez): can be *d * private_path
+    private_d = (int *) malloc(sizeof(int));
+
+#pragma omp task firstprivate(op, private_path, private_d) shared(node, g, bound)
+    {
+      node_t *n = node_cpy(node);
+      cube_t *c = n->cube;
+
+      transition[op](c); // succ->cube
+
+      /*
+      DBG_PRINTF("!!! %s\n", Solver::to_string(op));
+      for (int i=0; i<node->d; i++) {
+        DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
+      }
+      DBG_PRINTF("\n");
+      DBG_PRINTF("=========\n");
+      ppp(node->cube);
+      ppp(c);
+      DBG_PRINTF("=========\n");
+       */
+
+      n->steps[n->d] = op;
+      n->d++;
+
+      // path.push(succ)
+      private_path[*private_d] = n;
+      (*private_d)++;
+
+      int t = search(corner_db, private_path, private_d, g + cost(node, n), bound);
+
+#pragma omp critical
+      {
+        if (t == FOUND) {
+          iteration_t = t; // TODO(tianez): prob don't need this, as we have FOUND being the smallest possible t
+        }
+
+        if (t < iteration_t) {
+          iteration_t = t;
+        }
+      }
+
+      // path.pop()
+      (*private_d)--;
+
+      free(c);
+      free(n);
+      free(private_path);
+      free(private_d);
+    }
+  }
 }
 
 int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
@@ -290,6 +386,7 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
     transition[op](c); // succ->cube
 
+    /*
     DBG_PRINTF("!!! %s\n", Solver::to_string(op));
     for (int i=0; i<node->d; i++) {
       DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
@@ -299,6 +396,7 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
     ppp(node->cube);
     ppp(c);
     DBG_PRINTF("=========\n");
+     */
 
     n->steps[n->d] = op;
     n->d++;

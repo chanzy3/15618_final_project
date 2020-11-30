@@ -9,7 +9,7 @@ ARCH=$(shell uname | sed -e 's/-.*//g')
 
 OBJDIR=objs
 CXX=g++ -m64
-CXXFLAGS=-Wall -O3 -std=c++0x -g
+CXXFLAGS=-Wall -O3 -fopenmp -std=c++0x -g
 
 OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cube.o $(OBJDIR)/solver.o \
         $(OBJDIR)/util/NibbleArray.o \
