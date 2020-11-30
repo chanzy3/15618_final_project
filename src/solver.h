@@ -14,14 +14,16 @@
 
 enum method {
   BFS = 0,
-  IDA = 1
+  IDA_SEQ = 1,
+  IDA_OMP = 2
 };
 
 class Solver {
 public:
   Solver(enum method method) : method(method), corner_db() {
     switch (method) {
-      case IDA:
+      case IDA_SEQ:
+      case IDA_OMP:
         ida_init();
         break;
       default:
@@ -47,7 +49,8 @@ private:
 
   void ida_init();
   void ida_destroy();
-  bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
+  bool ida_solve_seq(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
+  bool ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
   paracube::CornerPatternDatabase corner_db;
 };

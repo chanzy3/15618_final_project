@@ -1,5 +1,6 @@
 #include <getopt.h>
 #include <iostream>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -9,29 +10,35 @@
 
 void usage(const char* progname) {
   printf("Usage: %s [options] method \n", progname);
-  printf("Valid methods are: BFS, IDA\n");
+  printf("Valid methods are: BFS, IDA_SEQ, IDA_OMP\n");
   printf("Program Options:\n");
-  printf("  -f  --file  <FILENAME>     Input file name\n");
-  printf("  -?  --help                 This message\n");
+  printf("  -f  --file  <FILENAME>        Input file name\n");
+  printf("  -t  --threads  <NUM_THREADS>  Number of OMP threads, only relevant for IDA_OMP method\n");
+  printf("  -?  --help                    This message\n");
 }
 
 int main(int argc, char** argv) {
   char *input_file_name = NULL;
   char *solverName = NULL;
   enum method method = BFS;
+  int num_omp_threads = 1;
 
   // parse commandline options ////////////////////////////////////////////
   int opt;
   static struct option long_options[] = {
       {"help",     0, 0,  '?'},
       {"file",     1, 0,  'f'},
+      {"threads",  1, 0,  't'},
       {0 ,0, 0, 0}
   };
 
-  while ((opt = getopt_long(argc, argv, "f:?", long_options, NULL)) != EOF) {
+  while ((opt = getopt_long(argc, argv, "t:f:?", long_options, NULL)) != EOF) {
     switch (opt) {
       case 'f':
         input_file_name = optarg;
+        break;
+      case 't':
+        num_omp_threads = atoi(optarg);
         break;
       case '?':
       default:
@@ -51,8 +58,12 @@ int main(int argc, char** argv) {
 
   if (strcmp(solverName, "BFS") == 0) {
     method = BFS;
-  } else if (strcmp(solverName, "IDA") == 0) {
-    method = IDA;
+  } else if (strcmp(solverName, "IDA_SEQ") == 0) {
+    method = IDA_SEQ;
+  } else if (strcmp(solverName, "IDA_OMP") == 0) {
+    method = IDA_OMP;
+    omp_set_num_threads(num_omp_threads);
+    fprintf(stdout, "Num omp threads: %d\n", omp_get_num_threads());
   } else {
     fprintf(stderr, "Unknown method name (%s)\n", solverName);
     usage(argv[0]);
