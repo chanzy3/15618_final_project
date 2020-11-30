@@ -36,12 +36,16 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
   d = 1;
   bound = h(&this->corner_db, root, d);
   DBG_PRINTF("initial bound %d\n", bound);
+
   while (1) {
+    iteration_t = INFTY;
+
 #pragma omp parallel
     {
 #pragma omp single
       {
-        fprintf(stdout, "Num omp threads: %d\n", omp_get_num_threads());
+        // printf("outout %p, %p\n", path, &d);
+        // fprintf(stdout, "Num omp threads: %d\n", omp_get_num_threads());
         search_omp_para(&this->corner_db, path, &d, 0, bound);
       }
       // TODO(tianez): assumed implicit barrier for all threads
@@ -49,9 +53,11 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
 
     DBG_PRINTF("iteration_t: %d\n\n", iteration_t);
     printf("iteration_t: %d\n", iteration_t);
+    // printf("outout finished %p, %p, %d\n", path, &d, d);
     if (iteration_t == FOUND) {
       node_t *n = path[d - 1];
       *num_steps = n->d;
+      // EX_PRINTF("out     , n  %s, %d\n", Solver::to_string(n->steps[n->d - 1]), n->d);
       memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
       for (int i = 0; i < MAX_DEPTH; i++) {
         DBG_PRINTF("%d ", solution[i]);
@@ -89,6 +95,8 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
   omp_unset_lock(&printlock);
 #endif
 
+  // EX_PRINTF("%p, %p\n", path, d);
+
   if (f > bound) {
     iteration_t = f;
     return;
@@ -108,8 +116,9 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
     private_path = (node_t **) malloc(MAX_DEPTH * sizeof(node_t *));
     memcpy(private_path, path, MAX_DEPTH * sizeof(node_t *)); // TODO(tianez): can be *d * private_path
     private_d = (int *) malloc(sizeof(int));
+    *private_d = *d;
 
-#pragma omp task firstprivate(op, private_path, private_d, bound, g) shared(node)
+#pragma omp task firstprivate(op, private_path, private_d, bound, g, path, d) shared(node)
     {
       node_t *n = node_cpy(node);
       cube_t *c = n->cube;
@@ -140,7 +149,14 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
 #pragma omp critical
       {
         if (t == FOUND) {
+          // EX_PRINTF("found %s, n  %s, %d\n", Solver::to_string(op), Solver::to_string(n->steps[n->d - 1]), n->d);
           iteration_t = t; // TODO(tianez): prob don't need this, as we have FOUND being the smallest possible t
+
+          node_t *nn = private_path[*private_d - 1];
+          // EX_PRINTF("found %s, nn %s, %d\n", Solver::to_string(op), Solver::to_string(nn->steps[nn->d - 1]), nn->d);
+          // EX_PRINTF("found %s, nn %p\n", Solver::to_string(op), nn);
+          // EX_PRINTF("found %s, pr     %d\n", Solver::to_string(op), *private_d);
+          // EX_PRINTF("path: %p -> %p, d: %p -> %p\n", private_path, path, private_d, d);
 
           memcpy(path, private_path, MAX_DEPTH * sizeof(node_t *));
           memcpy(d, private_d, sizeof(int));
@@ -154,8 +170,10 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
       // path.pop()
       (*private_d)--;
 
-      free(c);
-      free(n);
+      if (t != FOUND) {
+        free(c);
+        free(n);
+      }
       free(private_path);
       free(private_d);
     }
