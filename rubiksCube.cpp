@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
         }
         break;
       }
-      case 'o': {
+      case 'O': {
         char operation;
         while (fscanf(stdin, "%c", &operation) == 1) {
           if (operation >= 'B' && operation <= 'Z') {

@@ -66,6 +66,69 @@ namespace busybin
       if (curNode.depth != 0)
         moveInds[curNode.depth - 1] = curNode.moveInd;
 
+      for (unsigned i = 0; i < moveInds.size() && moveInds[i] != 0xFF; ++i) {
+        switch (moveInds[i]) {
+          case 0:
+            printf("L  ");
+            break;
+          case 1:
+            printf("L' ");
+            break;
+          case 2:
+            printf("L2 ");
+            break;
+          case 3:
+            printf("R  ");
+            break;
+          case 4:
+            printf("R' ");
+            break;
+          case 5:
+            printf("R2 ");
+            break;
+          case 6:
+            printf("U  ");
+            break;
+          case 7:
+            printf("U' ");
+            break;
+          case 8:
+            printf("U2 ");
+            break;
+          case 9:
+            printf("D  ");
+            break;
+          case 10:
+            printf("D' ");
+            break;
+          case 11:
+            printf("D2 ");
+            break;
+          case 12:
+            printf("F  ");
+            break;
+          case 13:
+            printf("F' ");
+            break;
+          case 14:
+            printf("F2 ");
+            break;
+          case 15:
+            printf("B  ");
+            break;
+          case 16:
+            printf("B' ");
+            break;
+          case 17:
+            printf("B2 ");
+            break;
+          default:
+            printf("?  ");
+        }
+        // printf("%s ", moveInds[i]);
+      }
+      printf("\n");
+
       if (curNode.depth == bound)
       {
         if (goal.isSatisfied(curNode.cube))
