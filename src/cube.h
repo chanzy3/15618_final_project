@@ -12,7 +12,7 @@
 #include <vector>
 #include <unordered_set>
 
-#define COLOR int
+#define COLOR uint8_t
 #define CORNER uint8_t // TODO(tianez): fix
 #define ULB 0
 #define URB 1

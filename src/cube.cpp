@@ -31,13 +31,13 @@ void F1(cube_t *c) {
   arr[1] = c->l[1][2];
   arr[2] = c->l[2][2];
 
-  c->l[0][2] = c->d[2][2];
-  c->l[1][2] = c->d[2][1];
-  c->l[2][2] = c->d[2][0];
+  c->l[0][2] = c->d[0][0];
+  c->l[1][2] = c->d[0][1];
+  c->l[2][2] = c->d[0][2];
 
-  c->d[2][2] = c->r[2][0];
-  c->d[2][1] = c->r[1][0];
-  c->d[2][0] = c->r[0][0];
+  c->d[0][0] = c->r[2][0];
+  c->d[0][1] = c->r[1][0];
+  c->d[0][2] = c->r[0][0];
 
   c->r[2][0] = c->u[2][2];
   c->r[1][0] = c->u[2][1];
@@ -46,6 +46,12 @@ void F1(cube_t *c) {
   c->u[2][2] = arr[0];
   c->u[2][1] = arr[1];
   c->u[2][0] = arr[2];
+
+  uint8_t tmp_orientation = c->corner_orientation[ULF];
+  c->corner_orientation[ULF] = c->corner_orientation[DLF];
+  c->corner_orientation[DLF] = c->corner_orientation[DRF];
+  c->corner_orientation[DRF] = c->corner_orientation[URF];
+  c->corner_orientation[URF] = tmp_orientation;
 
   c->updateCornerOrientationZ(ULF);
   c->updateCornerOrientationZ(URF);
@@ -61,13 +67,13 @@ void B1(cube_t *c) {
   arr[1] = c->r[1][2];
   arr[2] = c->r[2][2];
 
-  c->r[0][2] = c->d[0][0];
-  c->r[1][2] = c->d[0][1];
-  c->r[2][2] = c->d[0][2];
+  c->r[0][2] = c->d[2][2];
+  c->r[1][2] = c->d[2][1];
+  c->r[2][2] = c->d[2][0];
 
-  c->d[0][0] = c->l[2][0];
-  c->d[0][1] = c->l[1][0];
-  c->d[0][2] = c->l[0][0];
+  c->d[2][2] = c->l[2][0];
+  c->d[2][1] = c->l[1][0];
+  c->d[2][0] = c->l[0][0];
 
   c->l[2][0] = c->u[0][0];
   c->l[1][0] = c->u[0][1];
@@ -76,6 +82,12 @@ void B1(cube_t *c) {
   c->u[0][0] = arr[0];
   c->u[0][1] = arr[1];
   c->u[0][2] = arr[2];
+
+  uint8_t tmp_orientation = c->corner_orientation[ULB];
+  c->corner_orientation[ULB] = c->corner_orientation[URB];
+  c->corner_orientation[URB] = c->corner_orientation[DRB];
+  c->corner_orientation[DRB] = c->corner_orientation[DLB];
+  c->corner_orientation[DLB] = tmp_orientation;
 
   c->updateCornerOrientationZ(ULB);
   c->updateCornerOrientationZ(URB);
@@ -95,17 +107,23 @@ void L1(cube_t *c) {
   c->u[1][0] = c->b[1][2];
   c->u[2][0] = c->b[0][2];
 
-  c->b[2][2] = c->d[2][2];
-  c->b[1][2] = c->d[1][2];
-  c->b[0][2] = c->d[0][2];
+  c->b[2][2] = c->d[0][0];
+  c->b[1][2] = c->d[1][0];
+  c->b[0][2] = c->d[2][0];
 
-  c->d[2][2] = c->f[0][0];
-  c->d[1][2] = c->f[1][0];
-  c->d[0][2] = c->f[2][0];
+  c->d[0][0] = c->f[0][0];
+  c->d[1][0] = c->f[1][0];
+  c->d[2][0] = c->f[2][0];
 
   c->f[0][0] = arr[0];
   c->f[1][0] = arr[1];
   c->f[2][0] = arr[2];
+
+  uint8_t tmp_orientation = c->corner_orientation[DLB];
+  c->corner_orientation[DLB] = c->corner_orientation[DLF];
+  c->corner_orientation[DLF] = c->corner_orientation[ULF];
+  c->corner_orientation[ULF] = c->corner_orientation[ULB];
+  c->corner_orientation[ULB] = tmp_orientation;
 
   c->updateCornerOrientationX(DLB);
   c->updateCornerOrientationX(DLF);
@@ -125,17 +143,23 @@ void R1(cube_t *c) {
   c->u[1][2] = c->f[1][2];
   c->u[2][2] = c->f[2][2];
 
-  c->f[0][2] = c->d[2][0];
-  c->f[1][2] = c->d[1][0];
-  c->f[2][2] = c->d[0][0];
+  c->f[0][2] = c->d[0][2];
+  c->f[1][2] = c->d[1][2];
+  c->f[2][2] = c->d[2][2];
 
-  c->d[2][0] = c->b[2][0];
-  c->d[1][0] = c->b[1][0];
-  c->d[0][0] = c->b[0][0];
+  c->d[0][2] = c->b[2][0];
+  c->d[1][2] = c->b[1][0];
+  c->d[2][2] = c->b[0][0];
 
   c->b[2][0] = arr[0];
   c->b[1][0] = arr[1];
   c->b[0][0] = arr[2];
+
+  uint8_t tmp_orientation = c->corner_orientation[DRB];
+  c->corner_orientation[DRB] = c->corner_orientation[URB];
+  c->corner_orientation[URB] = c->corner_orientation[URF];
+  c->corner_orientation[URF] = c->corner_orientation[DRF];
+  c->corner_orientation[DRF] = tmp_orientation;
 
   c->updateCornerOrientationX(DRB);
   c->updateCornerOrientationX(DRF);
@@ -166,6 +190,12 @@ void U1(cube_t *c) {
   c->b[0][0] = arr[0];
   c->b[0][1] = arr[1];
   c->b[0][2] = arr[2];
+
+  uint8_t tmp_orientation = c->corner_orientation[ULF];
+  c->corner_orientation[ULF] = c->corner_orientation[URF];
+  c->corner_orientation[URF] = c->corner_orientation[URB];
+  c->corner_orientation[URB] = c->corner_orientation[ULB];
+  c->corner_orientation[ULB] = tmp_orientation;
 }
 
 void D1(cube_t *c) {
@@ -191,6 +221,12 @@ void D1(cube_t *c) {
   c->f[2][0] = arr[0];
   c->f[2][1] = arr[1];
   c->f[2][2] = arr[2];
+
+  uint8_t tmp_orientation = c->corner_orientation[DLB];
+  c->corner_orientation[DLB] = c->corner_orientation[DRB];
+  c->corner_orientation[DRB] = c->corner_orientation[DRF];
+  c->corner_orientation[DRF] = c->corner_orientation[DLF];
+  c->corner_orientation[DLF] = tmp_orientation;
 }
 
 void F2(cube_t *c) { F1(c); F1(c); }
@@ -438,22 +474,22 @@ inline void Cube::getCorner(CORNER ind, COLOR &a, COLOR &b, COLOR &c) const {
       c = this->f[0][0];
       break;
     case DLF:
-      a = this->d[2][2];
+      a = this->d[0][0];
       b = this->l[2][2];
       c = this->f[2][0];
       break;
     case DLB:
-      a = this->d[0][2];
+      a = this->d[2][0];
       b = this->l[2][0];
       c = this->b[2][2];
       break;
     case DRB:
-      a = this->d[0][0];
+      a = this->d[2][2];
       b = this->r[2][2];
       c = this->b[2][0];
       break;
     case DRF:
-      a = this->d[2][0];
+      a = this->d[0][2];
       b = this->r[2][0];
       c = this->f[2][2];
       break;
@@ -486,7 +522,7 @@ char ts(int c) {
 uint8_t Cube::getCornerIndex(CORNER ind) const {
   COLOR a, b, c;
   getCorner(ind, a, b, c);
-  printf("!ZZZ! %d, %c%c%c\n", ind, ts(a), ts(b), ts(c));
+  // printf("!ZZZ! %d, %c%c%c\n", ind, ts(a), ts(b), ts(c));
   switch (a * b * c) {
     case CR * CB * CY:
       return 0;
