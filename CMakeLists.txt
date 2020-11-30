@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.6)
 project(RubiksCube)
 
+set (CMAKE_CXX_STANDARD 11)
+
 # All source files.
 set(SRC "./rubiksCube.cpp"
   "./KorfCubeSolver.cpp"
