@@ -114,6 +114,9 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
     case IDA:
       solution_found = ida_solve(cube, solution, num_steps);
       break;
+    default:
+      fprintf(stderr, "unknown method %d\n", this->method);
+      exit(1);
   }
   double end_time = CycleTimer::currentSeconds();
 
@@ -207,6 +210,7 @@ void Solver::ida_destroy() {
 int h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d) {
   //
   // return 1;
+  DBG_CUBE(node->cube);
   return corner_db->getNumMoves(*node->cube);
 }
 
@@ -231,20 +235,20 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   path[0] = root;
   d = 1;
   bound = h(&this->corner_db, root, d);
-  printf("initial bound %d\n", bound);
+  DBG_PRINTF("initial bound %d\n", bound);
 
   CubeSet cubes;
   while (1) {
     int t = search(&this->corner_db, path, &d, cubes, 0, bound);
-    printf("t: %d\n\n", t);
+    DBG_PRINTF("t: %d\n\n", t);
     if (t == FOUND) {
       node_t *n = path[d - 1];
       *num_steps = n->d;
       memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
       for (int i=0; i<MAX_DEPTH; i++) {
-        printf("%d ", solution[i]);
+        DBG_PRINTF("%d ", solution[i]);
       }
-      printf("\n");
+      DBG_PRINTF("\n");
       return true;
     }
     if (t == INFTY) {
@@ -265,7 +269,7 @@ bool cube_visited(const CubeSet &cubes, cube_t *cube) {
 int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound) {
   node_t *node = path[(*d) - 1];
   int f = g + h(corner_db, node, (*d) - 1);
-  printf("search h %d\n", f - g);
+  DBG_PRINTF("search h %d\n", f - g);
 
   if (f > bound) {
     return f;
@@ -283,15 +287,15 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
     transition[op](c); // succ->cube
 
-    printf("!!! %s\n", Solver::to_string(op));
+    DBG_PRINTF("!!! %s\n", Solver::to_string(op));
     for (int i=0; i<node->d; i++) {
-      fprintf(stdout, "%s ", Solver::to_string(node->steps[i]));
+      DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
     }
-    fprintf(stdout, "\n");
-    printf("=========\n");
+    DBG_PRINTF("\n");
+    DBG_PRINTF("=========\n");
     ppp(node->cube);
     ppp(c);
-    printf("=========\n");
+    DBG_PRINTF("=========\n");
 
     if (cube_visited(cubes, c)) {
       free(c);

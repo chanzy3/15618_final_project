@@ -24,6 +24,7 @@ void rotate1(COLOR s[DIM][DIM]) {
 }
 
 void F1(cube_t *c) {
+  DBG_PRINTF("F1\n");
   rotate1(c->f);
 
   COLOR arr[3];
@@ -60,6 +61,7 @@ void F1(cube_t *c) {
 }
 
 void B1(cube_t *c) {
+  DBG_PRINTF("B1\n");
   rotate1(c->b);
 
   COLOR arr[3];
@@ -96,6 +98,7 @@ void B1(cube_t *c) {
 }
 
 void L1(cube_t *c) {
+  DBG_PRINTF("L1\n");
   rotate1(c->l);
 
   COLOR arr[3];
@@ -132,6 +135,7 @@ void L1(cube_t *c) {
 }
 
 void R1(cube_t *c) {
+  DBG_PRINTF("R1\n");
   rotate1(c->r);
 
   COLOR arr[3];
@@ -168,6 +172,7 @@ void R1(cube_t *c) {
 }
 
 void U1(cube_t *c) {
+  DBG_PRINTF("U1\n");
   rotate1(c->u);
 
   COLOR arr[3];
@@ -199,6 +204,7 @@ void U1(cube_t *c) {
 }
 
 void D1(cube_t *c) {
+  DBG_PRINTF("D1\n");
   rotate1(c->d);
 
   COLOR arr[3];
@@ -342,7 +348,7 @@ bool test_integrity(cube_t *c) {
     }
   }
 
-  // printf("%d, %d, %d, %d, %d, %d\n", count[0], count[1], count[2], count[3], count[4], count[5]);
+  // DBG_PRINTF("%d, %d, %d, %d, %d, %d\n", count[0], count[1], count[2], count[3], count[4], count[5]);
   for (int i=0; i<6; i++) {
     if (count[i] != DIM * DIM) {
       fprintf(stderr, "count for color C%c should be %d but is %d\n", 'A'+i, DIM * DIM, count[i]);
@@ -401,52 +407,52 @@ bool test_converge(cube_t *c) {
 void ppp0(COLOR s[DIM][DIM]) {
   for (int i=0; i<DIM; i++) {
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", s[i][j]);
+      DBG_PRINTF("%2d ", s[i][j]);
     }
-    printf("\n");
+    DBG_PRINTF("\n");
   }
 }
 
 void ppp(cube_t *cube) {
-  printf("F%9.9s| B%9.9s| L%9.9s| R%9.9s| U%9.9s| D\n", "", "", "", "", "");
+  DBG_PRINTF("F%9.9s| B%9.9s| L%9.9s| R%9.9s| U%9.9s| D\n", "", "", "", "", "");
   for (int i=0; i<DIM; i++) {
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", cube->f[i][j]);
+      DBG_PRINTF("%2d ", cube->f[i][j]);
     }
-    printf(" | ");
+    DBG_PRINTF(" | ");
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", cube->b[i][j]);
+      DBG_PRINTF("%2d ", cube->b[i][j]);
     }
-    printf(" | ");
+    DBG_PRINTF(" | ");
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", cube->l[i][j]);
+      DBG_PRINTF("%2d ", cube->l[i][j]);
     }
-    printf(" | ");
+    DBG_PRINTF(" | ");
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", cube->r[i][j]);
+      DBG_PRINTF("%2d ", cube->r[i][j]);
     }
-    printf(" | ");
+    DBG_PRINTF(" | ");
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", cube->u[i][j]);
+      DBG_PRINTF("%2d ", cube->u[i][j]);
     }
-    printf(" | ");
+    DBG_PRINTF(" | ");
     for (int j=0; j<DIM; j++) {
-      printf("%2d ", cube->d[i][j]);
+      DBG_PRINTF("%2d ", cube->d[i][j]);
     }
-    printf("\n");
+    DBG_PRINTF("\n");
   }
   /*
-  printf("F\n");
+  DBG_PRINTF("F\n");
   ppp0(cube->f);
-  printf("B\n");
+  DBG_PRINTF("B\n");
   ppp0(cube->b);
-  printf("L\n");
+  DBG_PRINTF("L\n");
   ppp0(cube->l);
-  printf("R\n");
+  DBG_PRINTF("R\n");
   ppp0(cube->r);
-  printf("U\n");
+  DBG_PRINTF("U\n");
   ppp0(cube->u);
-  printf("D\n");
+  DBG_PRINTF("D\n");
   ppp0(cube->d);
    */
 }
@@ -522,7 +528,7 @@ char ts(int c) {
 uint8_t Cube::getCornerIndex(CORNER ind) const {
   COLOR a, b, c;
   getCorner(ind, a, b, c);
-  // printf("!ZZZ! %d, %c%c%c\n", ind, ts(a), ts(b), ts(c));
+  // DBG_PRINTF("!ZZZ! %d, %c%c%c\n", ind, ts(a), ts(b), ts(c));
   switch (a * b * c) {
     case CR * CB * CY:
       return 0;
@@ -555,6 +561,18 @@ uint8_t Cube::getCornerOrientation(CORNER ind) const {
    */
 inline void Cube::updateCornerOrientationX(CORNER ind)
 {
+
+  DBG_PRINTF("!ux! corner %d\n", ind);
+  DBG_PRINTF("!ux! from %d, %d, %d, %d, %d, %d, %d, %d\n",
+         corner_orientation[0],
+         corner_orientation[1],
+         corner_orientation[2],
+         corner_orientation[3],
+         corner_orientation[4],
+         corner_orientation[5],
+         corner_orientation[6],
+         corner_orientation[7]
+  );
   // The new orientation differs based on its distance from home.  E.g.
   // moving corner 0 (RBY) left moves it from ULB (0) to ULF (3).  That's an
   // odd distance (0+3), so the orientation is 1 (Y on top).  Moving corner 0
@@ -568,6 +586,17 @@ inline void Cube::updateCornerOrientationX(CORNER ind)
     this->corner_orientation[ind] = evenDist ? 0 : 2;
   else if (this->getCornerOrientation(ind) == 2)
     this->corner_orientation[ind] = evenDist ? 1 : 0;
+
+  DBG_PRINTF("!ux! to   %d, %d, %d, %d, %d, %d, %d, %d\n",
+         corner_orientation[0],
+         corner_orientation[1],
+         corner_orientation[2],
+         corner_orientation[3],
+         corner_orientation[4],
+         corner_orientation[5],
+         corner_orientation[6],
+         corner_orientation[7]
+  );
 }
 
 /**
@@ -575,6 +604,17 @@ inline void Cube::updateCornerOrientationX(CORNER ind)
    */
 inline void Cube::updateCornerOrientationZ(CORNER ind)
 {
+  DBG_PRINTF("!uz! corner %d\n", ind);
+  DBG_PRINTF("!uz! from %d, %d, %d, %d, %d, %d, %d, %d\n",
+         corner_orientation[0],
+         corner_orientation[1],
+         corner_orientation[2],
+         corner_orientation[3],
+         corner_orientation[4],
+         corner_orientation[5],
+         corner_orientation[6],
+         corner_orientation[7]
+  );
   // Moving corner 3 (RBW) front moves it from ULF (3) to URF (2).  That's an
   // odd distance (3+2), so the orientation is 2 (B on top).  Moving corner 3
   // (RBW) front prime from URF (2) to ULF (3) is even (3+3), so the
@@ -587,6 +627,17 @@ inline void Cube::updateCornerOrientationZ(CORNER ind)
     this->corner_orientation[ind] = evenDist ? 2 : 0;
   else if (this->getCornerOrientation(ind) == 2)
     this->corner_orientation[ind] = evenDist ? 0 : 1;
+
+  DBG_PRINTF("!uz! to   %d, %d, %d, %d, %d, %d, %d, %d\n",
+         corner_orientation[0],
+         corner_orientation[1],
+         corner_orientation[2],
+         corner_orientation[3],
+         corner_orientation[4],
+         corner_orientation[5],
+         corner_orientation[6],
+         corner_orientation[7]
+  );
 }
 
 

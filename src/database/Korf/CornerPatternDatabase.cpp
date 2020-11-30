@@ -49,7 +49,7 @@ namespace paracube
       iCube.getCornerIndex(DRF)
     };
 
-    printf("!ZZ! %d, %d, %d, %d, %d, %d, %d, %d\n",
+    DBG_PRINTF("!ZZ! %d, %d, %d, %d, %d, %d, %d, %d\n",
            cornerPerm[0],
            cornerPerm[1],
            cornerPerm[2],
@@ -131,7 +131,7 @@ namespace paracube
       cornerOrientations[5] * 3 +
       cornerOrientations[6];
 
-    printf("!1! cornerOrientations %d, %d, %d, %d, %d, %d, %d, ?\n",
+    DBG_PRINTF("!1! cornerOrientations %d, %d, %d, %d, %d, %d, %d, ?\n",
            cornerOrientations[0],
            cornerOrientations[1],
            cornerOrientations[2],
@@ -140,8 +140,8 @@ namespace paracube
            cornerOrientations[5],
            cornerOrientations[6]
            );
-    printf("!2! index %lu, orientationNum %lu\n", index, orientationNum);
-    printf("!3! %lu\n", index * 2187 + orientationNum);
+    DBG_PRINTF("!2! index %u, orientationNum %u\n", index, orientationNum);
+    DBG_PRINTF("!3! %u\n", index * 2187 + orientationNum);
 
     // Combine the permutation and orientation into a single index.
     // p * 3^7 + o;

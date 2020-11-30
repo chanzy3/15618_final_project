@@ -149,14 +149,12 @@ namespace paracube
 
     size_t fileSize = reader.tellg();
 
-    printf("fileSize %zu, storageSize %zu\n", fileSize, this->database.storageSize());
     if (fileSize != this->database.storageSize())
     {
       reader.close();
       throw RubiksCubeException("Database file appears to be corrupt.  Wrong size.");
     }
 
-    printf("!X!\n");
     reader.seekg(0, std::ios::beg);
     reader.read(
         reinterpret_cast<char*>(this->database.data()),
@@ -164,7 +162,6 @@ namespace paracube
     reader.close();
     this->numItems = this->size;
 
-    printf("!Y!\n");
     return true;
   }
 
