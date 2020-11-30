@@ -299,6 +299,10 @@ cube_t *cube_new(bool init) {
     fill(cube->r, CG);
     fill(cube->u, CR);
     fill(cube->d, CO);
+
+    for (int i=0; i<8; i++) {
+      cube->corner_orientation[i] = 0;
+    }
   }
 
   return cube;
