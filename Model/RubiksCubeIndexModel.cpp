@@ -1,4 +1,5 @@
 #include "RubiksCubeIndexModel.h"
+#include "../Util/debug.h"
 
 namespace busybin
 {
@@ -551,6 +552,18 @@ namespace busybin
    */
   inline void RubiksCubeIndexModel::updateCornerOrientationX(CORNER ind)
   {
+    DBG_PRINTF("!ux! corner %d\n", ind);
+    DBG_PRINTF("!ux! from %d, %d, %d, %d, %d, %d, %d, %d\n",
+           corners[0].orientation,
+           corners[1].orientation,
+           corners[2].orientation,
+           corners[3].orientation,
+           corners[4].orientation,
+           corners[5].orientation,
+           corners[6].orientation,
+           corners[7].orientation
+    );
+
     Cubie& corner = this->corners[(unsigned)ind];
 
     // The new orientation differs based on its distance from home.  E.g.
@@ -566,6 +579,18 @@ namespace busybin
       corner.orientation = evenDist ? 0 : 2;
     else // if (corner.orientation == 2)
       corner.orientation = evenDist ? 1 : 0;
+
+    DBG_PRINTF("!ux! to   %d, %d, %d, %d, %d, %d, %d, %d\n",
+           corners[0].orientation,
+           corners[1].orientation,
+           corners[2].orientation,
+           corners[3].orientation,
+           corners[4].orientation,
+           corners[5].orientation,
+           corners[6].orientation,
+           corners[7].orientation
+    );
+
   }
 
   /**
@@ -573,6 +598,18 @@ namespace busybin
    */
   inline void RubiksCubeIndexModel::updateCornerOrientationZ(CORNER ind)
   {
+    DBG_PRINTF("!uz! corner %d\n", ind);
+    DBG_PRINTF("!uz! from %d, %d, %d, %d, %d, %d, %d, %d\n",
+           corners[0].orientation,
+           corners[1].orientation,
+           corners[2].orientation,
+           corners[3].orientation,
+           corners[4].orientation,
+           corners[5].orientation,
+           corners[6].orientation,
+           corners[7].orientation
+    );
+
     Cubie& corner = this->corners[(unsigned)ind];
 
     // Moving corner 3 (RBW) front moves it from ULF (3) to URF (2).  That's an
@@ -587,6 +624,17 @@ namespace busybin
       corner.orientation = evenDist ? 2 : 0;
     else // if (corner.orientation == 2)
       corner.orientation = evenDist ? 0 : 1;
+
+    DBG_PRINTF("!uz! to   %d, %d, %d, %d, %d, %d, %d, %d\n",
+           corners[0].orientation,
+           corners[1].orientation,
+           corners[2].orientation,
+           corners[3].orientation,
+           corners[4].orientation,
+           corners[5].orientation,
+           corners[6].orientation,
+           corners[7].orientation
+    );
   }
 
   /**

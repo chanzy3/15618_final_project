@@ -1,4 +1,5 @@
 #include "CornerPatternDatabase.h"
+#include "../../../Util/debug.h"
 
 namespace busybin
 {
@@ -31,6 +32,8 @@ namespace busybin
 
     const RubiksCubeIndexModel& iCube = static_cast<const RubiksCubeIndexModel&>(cube);
 
+    cube.dbg();
+
     // The permutation of the 8 corners.
     perm_t cornerPerm =
     {
@@ -43,6 +46,17 @@ namespace busybin
       iCube.getCornerIndex(CORNER::DRB),
       iCube.getCornerIndex(CORNER::DRF)
     };
+
+    DBG_PRINTF("!ZZ! %d, %d, %d, %d, %d, %d, %d, %d\n",
+           cornerPerm[0],
+           cornerPerm[1],
+           cornerPerm[2],
+           cornerPerm[3],
+           cornerPerm[4],
+           cornerPerm[5],
+           cornerPerm[6],
+           cornerPerm[7]
+    );
 
     // Compute the Lehmer code using Korf's linear algorithm.  It's discussed
     // in his paper, Large-Scale Parallel Breadth-First Search
@@ -115,6 +129,17 @@ namespace busybin
       cornerOrientations[5] * 3 +
       cornerOrientations[6];
 
+    DBG_PRINTF("!1! cornerOrientations %d, %d, %d, %d, %d, %d, %d, ?\n",
+           cornerOrientations[0],
+           cornerOrientations[1],
+           cornerOrientations[2],
+           cornerOrientations[3],
+           cornerOrientations[4],
+           cornerOrientations[5],
+           cornerOrientations[6]
+    );
+    DBG_PRINTF("!2! index %lu, orientationNum %lu\n", index, orientationNum);
+    DBG_PRINTF("!3! %lu\n", index * 2187 + orientationNum);
     // Combine the permutation and orientation into a single index.
     // p * 3^7 + o;
     return index * 2187 + orientationNum;

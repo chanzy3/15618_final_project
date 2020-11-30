@@ -209,7 +209,7 @@ namespace busybin
     for (RubiksCubeModel::MOVE move : goalMoves)
     {
       iCube.move(move);
-      cout << (unsigned)move << " "; 
+      cout << iCube.getMove(move) << " ";
     }
     cout << endl;
     if (iCube.isSolved())

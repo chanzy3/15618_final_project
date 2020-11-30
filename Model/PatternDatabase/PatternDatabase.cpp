@@ -1,4 +1,5 @@
 #include "PatternDatabase.h"
+#include "../../Util/debug.h"
 
 namespace busybin
 {

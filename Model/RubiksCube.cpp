@@ -1,4 +1,5 @@
 #include "RubiksCube.h"
+#include "../Util/debug.h"
 
 namespace busybin
 {
@@ -252,6 +253,37 @@ namespace busybin
         return "S2";
       default:
         throw RubiksCubeException("Invalid face turn index.");
+    }
+  }
+
+#define DIM 3
+  void RubiksCube::dbg() const {
+    DBG_PRINTF("F%9.9s| B%9.9s| L%9.9s| R%9.9s| U%9.9s| D\n", "", "", "", "", "");
+    for (int i=0; i<DIM; i++) {
+      for (int j=0; j<DIM; j++) {
+        DBG_PRINTF("%2d ", getColor(FACE::FRONT, i, j));
+      }
+      DBG_PRINTF(" | ");
+      for (int j=0; j<DIM; j++) {
+        DBG_PRINTF("%2d ", getColor(FACE::BACK, i, j));
+      }
+      DBG_PRINTF(" | ");
+      for (int j=0; j<DIM; j++) {
+        DBG_PRINTF("%2d ", getColor(FACE::LEFT, i, j));
+      }
+      DBG_PRINTF(" | ");
+      for (int j=0; j<DIM; j++) {
+        DBG_PRINTF("%2d ", getColor(FACE::RIGHT, i, j));
+      }
+      DBG_PRINTF(" | ");
+      for (int j=0; j<DIM; j++) {
+        DBG_PRINTF("%2d ", getColor(FACE::UP, i, j));
+      }
+      DBG_PRINTF(" | ");
+      for (int j=0; j<DIM; j++) {
+        DBG_PRINTF("%2d ", getColor(FACE::DOWN, i, j));
+      }
+      DBG_PRINTF("\n");
     }
   }
 }

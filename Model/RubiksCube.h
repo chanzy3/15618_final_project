@@ -38,6 +38,8 @@ namespace busybin
     virtual bool isSolved() const = 0;
     string getMove(MOVE ind) const;
 
+    void dbg() const;
+
     // Face moves.
     RubiksCube& move(MOVE ind);
     RubiksCube& invert(MOVE ind);
