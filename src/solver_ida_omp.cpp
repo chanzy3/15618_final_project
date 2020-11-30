@@ -8,11 +8,17 @@
 
 #include "solver_ida_omp.h"
 
+#define EX_PRINTF(format, ...) { \
+  omp_set_lock(&printlock); \
+  printf(format, ##__VA_ARGS__); \
+  omp_unset_lock(&printlock); \
+}
+
 bool SolverIdaOmp::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_omp(cube, solution, num_steps);
 }
 
-int iteration_t;
+uint8_t iteration_t;
 int depth;
 
 bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
@@ -24,7 +30,7 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
 
   node_t *path[MAX_DEPTH];
   int d;
-  int bound;
+  uint8_t bound;
 
   path[0] = root;
   d = 1;
@@ -35,12 +41,14 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
     {
 #pragma omp single
       {
+        fprintf(stdout, "Num omp threads: %d\n", omp_get_num_threads());
         search_omp_para(&this->corner_db, path, &d, 0, bound);
       }
       // TODO(tianez): assumed implicit barrier for all threads
     }
 
     DBG_PRINTF("iteration_t: %d\n\n", iteration_t);
+    printf("iteration_t: %d\n", iteration_t);
     if (iteration_t == FOUND) {
       node_t *n = path[d - 1];
       *num_steps = n->d;
@@ -64,17 +72,21 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
 
 bool found = false;
 
-void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
+void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
   node_t *node = path[(*d) - 1];
-  int f = g + h(corner_db, node, (*d) - 1);
+  uint8_t f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search_omp_para h %d\n", f - g);
 
 #ifdef PRINT_PATH
-  printf("para: ");
+  omp_set_lock(&printlock);
+
+  printf("%hhu+%hhu=%hhu/%hhu next_cost %hhu para: ", g, f-g, f, bound, g + cost(node, node));
   for (int i=0; i<node->d; i++) {
     printf("%s ", Solver::to_string(node->steps[i]));
   }
   printf("\n");
+
+  omp_unset_lock(&printlock);
 #endif
 
   if (f > bound) {
@@ -97,7 +109,7 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
     memcpy(private_path, path, MAX_DEPTH * sizeof(node_t *)); // TODO(tianez): can be *d * private_path
     private_d = (int *) malloc(sizeof(int));
 
-#pragma omp task firstprivate(op, private_path, private_d) shared(node, g, bound)
+#pragma omp task firstprivate(op, private_path, private_d, bound, g) shared(node)
     {
       node_t *n = node_cpy(node);
       cube_t *c = n->cube;
@@ -123,12 +135,15 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
       private_path[*private_d] = n;
       (*private_d)++;
 
-      int t = search_omp(corner_db, private_path, private_d, g + cost(node, n), bound);
+      uint8_t t = search_omp(corner_db, private_path, private_d, g + cost(node, n), bound);
 
 #pragma omp critical
       {
         if (t == FOUND) {
           iteration_t = t; // TODO(tianez): prob don't need this, as we have FOUND being the smallest possible t
+
+          memcpy(path, private_path, MAX_DEPTH * sizeof(node_t *));
+          memcpy(d, private_d, sizeof(int));
         }
 
         if (t < iteration_t) {
@@ -147,17 +162,24 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
   }
 }
 
-int SolverIdaOmp::search_omp(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
+uint8_t SolverIdaOmp::search_omp(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
   node_t *node = path[(*d) - 1];
-  int f = g + h(corner_db, node, (*d) - 1);
+  uint8_t f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search_omp h %d\n", f - g);
 
 #ifdef PRINT_PATH
-  printf("norm: ");
+  omp_set_lock(&printlock);
+
+  printf("%hhu+%hhu=%hhu/%hhu next_cost %hhu norm: ", g, f-g, f, bound, g + cost(node, node));
   for (int i=0; i<node->d; i++) {
     printf("%s ", Solver::to_string(node->steps[i]));
   }
+  if (test_converge(node->cube)) {
+    printf("converged");
+  }
   printf("\n");
+
+  omp_unset_lock(&printlock);
 #endif
 
 

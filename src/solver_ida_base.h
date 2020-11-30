@@ -10,7 +10,7 @@
 #include "solver.h"
 
 #define FOUND 0 // TODO(tianez): must be smaller than OTHERS_FOUND
-#define INFTY 0x7FFFFFFF
+#define INFTY 0x7F
 
 class SolverIdaBase : public Solver {
 
@@ -28,8 +28,8 @@ private:
   void ida_destroy();
 
 protected:
-  int h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d);
-  int cost(node_t *n1, node_t *n2);
+  uint8_t h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d);
+  uint8_t cost(node_t *n1, node_t *n2);
 
   paracube::CornerPatternDatabase corner_db;
 };

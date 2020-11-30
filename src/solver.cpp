@@ -26,6 +26,7 @@ bool Solver::timedSolve(cube_t *cube) {
     exit(0);
   }
 
+  fprintf(stdout, "%d solution steps: ", num_steps);
   for (int i=0; i<num_steps; i++) {
     fprintf(stdout, "%s ", to_string(solution[i]));
   }

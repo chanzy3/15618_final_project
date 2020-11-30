@@ -21,13 +21,13 @@ void SolverIdaBase::ida_destroy() {
   // delete this->corner_db;
 }
 
-int SolverIdaBase::h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d) {
+uint8_t SolverIdaBase::h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d) {
   //
   // return 1;
   DBG_CUBE(node->cube);
   return corner_db->getNumMoves(*node->cube);
 }
 
-int SolverIdaBase::cost(node_t *n1, node_t *n2) {
+uint8_t SolverIdaBase::cost(node_t *n1, node_t *n2) {
   return 1;
 }
