@@ -556,6 +556,7 @@ uint8_t Cube::getCornerOrientation(CORNER ind) const {
   return this->corner_orientation[ind];
 }
 
+// TODO(tianez): adapted
 /**
    * Helper to update the orientation of corners on an L or R turn.
    */
