@@ -48,9 +48,11 @@ public:
 #define DEPTH_LIMIT 6 // must be smaller than MAX_DEPTH
 
 typedef struct {
-  int solution[MAX_DEPTH];
   int bound;
   int depth;
+  int branch_id;
+  int solution[MAX_DEPTH];
+  
 } ans_t;
 
   bool solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);

@@ -12,6 +12,7 @@
 #include "solver.h"
 
 #define TRANSITION_COUNT 18
+extern int numProcessors;
 // transition functions
 void (*transition[TRANSITION_COUNT])(cube_t *) =
     {
@@ -83,9 +84,9 @@ const char *Solver::to_string(int operation)
 // search node
 typedef struct node
 {
-cube_t *cube;
-int steps[MAX_DEPTH];
-int d;
+  cube_t *cube;
+  int steps[MAX_DEPTH];
+  int d;
 } node_t;
 
 node_t *node_new()
@@ -140,8 +141,8 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     solution_found = ida_solve(cube, solution, num_steps);
     break;
   case IDA_PARA:
-	solution_found = ida_solve_para(cube, solution, num_steps);
-	break;
+    solution_found = ida_solve_para(cube, solution, num_steps);
+    break;
   default:
     fprintf(stderr, "unknown method %d\n", this->method);
     exit(1);
@@ -321,15 +322,15 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
   int f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search h %d\n", f - g);
 
-//   for (int i = 0; i < node->d; i++)
-//   {
-//     printf("%s ", Solver::to_string(node->steps[i]));
-//   }
-//   printf("\n");
+  //   for (int i = 0; i < node->d; i++)
+  //   {
+  //     printf("%s ", Solver::to_string(node->steps[i]));
+  //   }
+  //   printf("\n");
 
   if (f > bound)
-  {	
-	//printf("f: %d, bound: %d\n", f, bound);
+  {
+    //printf("f: %d, bound: %d\n", f, bound);
     return f;
   }
 
@@ -402,21 +403,22 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
 MPI_Datatype createType()
 {
-    MPI_Datatype new_type;
-    const int nitems = 2;
-    MPI_Datatype types[2] = {MPI_INT, MPI_INT};
-    MPI_Aint offsets[2];
-    int blocklens[2] = {MAX_CITY, 1};
+  MPI_Datatype new_type;
+  const int nitems = 2;
+  MPI_Datatype types[2] = {MPI_INT, MPI_INT};
+  MPI_Aint offsets[2];
+  int blocklens[2] = {MAX_CITY, 1};
 
-    offsets[0] = offsetof(ans_t, bestPath);
-    offsets[1] = offsetof(ans_t, bestCost);
+  offsets[0] = offsetof(ans_t, bestPath);
+  offsets[1] = offsetof(ans_t, bestCost);
 
-    MPI_Type_create_struct(nitems, blocklens, offsets, types, &new_type);
-    MPI_Type_commit(&new_type);
-    return new_type;
+  MPI_Type_create_struct(nitems, blocklens, offsets, types, &new_type);
+  MPI_Type_commit(&new_type);
+  return new_type;
 }
 
-void run_master(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+void run_master(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
+{
   MPI_Status mpi_sta;
   // node_t *root = node_new_from_cube(cube);
 
@@ -432,7 +434,6 @@ void run_master(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
 
   int branchId = 0;
 
-
   //path[0] = root;
   d = 1;
   bound = h(&this->corner_db, root, d);
@@ -444,39 +445,96 @@ void run_master(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
     // recv t
     MPI_Recv(&ans, 1, mpi_ans_t, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
 
-    switch(mpi_sta.MPI_TAG)
+    switch (mpi_sta.MPI_TAG)
     {
-      case ALLOCATE_TAG:
-        if (branch_id < TRANSITION_COUNT)
+    case ALLOCATE_TAG:
+      if (branch_id < TRANSITION_COUNT)
+      {
+        // prepare buffer to send to worker node
+        buf.branch_id = branch_id;
+        buf.bound = bound;
+        memcpy(&buf.path, &ans.path, sizeof(node_t *) * MAX_DEPTH);
+        buf.depth = 1;
+
+        MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
+        branchId++;
+      }
+      // Finish iterative deepening for bound
+      else
+      {
+        // set the bound to nextBound and start assigning jobs again
+        bound = nextBound;
+
+        // If bound is 0, we found a solution, abort the rest nodes
+        if (bound == FOUND)
         {
-          // prepare buffer to send to worker node
-          buf.bound = bound;
-          memcpy(&buf.path, &ans.path, sizeof(node_t *) * MAX_DEPTH);
-          buf.depth = 1;
-
-          MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
-          branchId++;
-
+          numWorkers--;
+          MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE,
+                   ABORT_TAG, MPI_COMM_WORLD);
+          if (numWorkers == 0)
+            return;
         }
-        // Finish iterative deepening for bound
-        else {
-          // set the bound to nextBound and start assigning jobs again
-          bound = nextBound;
+
+        // If boun is not 0, solution not found yet,
+        else
+        {
           nextBound = INFTY;
-          branchId = 0; 
+          branchId = 0;
         }
-        break;
+      }
+      break;
 
-      case UPDATE_TAG:
-        // one worker node found the solution, update solution and depth
-        if (ans.bound == FOUND)
-        {
-          memcpy(&solution, &ans.solution, sizeof(int) * MAX_DEPTH);
-          *num_steps = ans.depth;
-        }
-        nextBound = min(nextBound, ans.bound);
-        break;
+    case UPDATE_TAG:
+      // one worker node found the solution, update solution and depth
+      if (ans.bound == FOUND)
+      {
+        memcpy(&solution, &ans.solution, sizeof(int) * MAX_DEPTH);
+        *num_steps = ans.depth;
+      }
+      nextBound = min(nextBound, ans.bound);
+      break;
+    }
+  }
+}
 
+void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
+{
+  MPI_Status mpi_sta;
+  ans_t ans;
+  ans_t buf;
+  int depth;
+  int bound;
+  int op;
+  CubeSet cubes;
+
+  while (1)
+  {
+    MPI_Send(&ans, 1, mpi_ans_t, 0, ALLOCATE_TAG, MPI_COMM_WORLD);
+    MPI_Recv(&buf, 1, mpi_ans_t, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
+
+    switch (mpi_sta.MPI_TAG)
+    {
+    case START_TAG:
+
+      op = buf.branch_id;
+
+      node_t *root = node_new_from_cube(cube);
+
+      node_t *path[MAX_DEPTH];
+
+      path[0] = root;
+
+      node_t *n = node_cpy(node);
+      cube_t *c = n->cube;
+      transition[op](c); // succ->cube
+
+      bound = buf.bound;
+
+      ans.bound = search(corner_db, path, &depth, cubes, 0, bound);
+      ans.
+
+    case ABORT_TAG:
+      return;
     }
   }
 }
