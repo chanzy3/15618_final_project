@@ -8,7 +8,7 @@ CC_FILES   := main.cpp cube.cpp solver.cpp
 ARCH=$(shell uname | sed -e 's/-.*//g')
 
 OBJDIR=objs
-CXX=g++ -m64
+CXX=g++ -m64 -fopenmp
 CXXFLAGS=-Wall -O3 -std=c++11 -g
 
 OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cube.o $(OBJDIR)/solver.o \

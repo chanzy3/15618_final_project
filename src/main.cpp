@@ -48,11 +48,14 @@ int main(int argc, char** argv) {
   }
 
   solverName = argv[optind];
-
+  //printf(solverName);
   if (strcmp(solverName, "BFS") == 0) {
     method = BFS;
   } else if (strcmp(solverName, "IDA") == 0) {
     method = IDA;
+  } else if (strcmp(solverName, "IDAPARA") == 0) {
+    method = IDA_PARA;
+    // printf("asdf");
   } else {
     fprintf(stderr, "Unknown method name (%s)\n", solverName);
     usage(argv[0]);
