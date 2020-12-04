@@ -8,8 +8,8 @@ CC_FILES   := main.cpp cube.cpp solver.cpp
 ARCH=$(shell uname | sed -e 's/-.*//g')
 
 OBJDIR=objs
-CXX=g++ -m64 -fopenmp
-CXXFLAGS=-Wall -O3 -std=c++11 -g
+CXX=mpicxx -m64 -fopenmp
+CXXFLAGS=-Wall -O3 -std=c++0x -g
 
 OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cube.o $(OBJDIR)/solver.o \
         $(OBJDIR)/util/NibbleArray.o \

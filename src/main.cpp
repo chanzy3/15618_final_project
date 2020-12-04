@@ -7,6 +7,9 @@
 #include "debug.h"
 #include "solver.h"
 
+
+// int processorId;
+int numProcessors;
 void usage(const char* progname) {
   printf("Usage: %s [options] method \n", progname);
   printf("Valid methods are: BFS, IDA\n");
@@ -16,6 +19,7 @@ void usage(const char* progname) {
 }
 
 int main(int argc, char** argv) {
+  
   char *input_file_name = NULL;
   char *solverName = NULL;
   enum method method = BFS;
@@ -28,10 +32,13 @@ int main(int argc, char** argv) {
       {0 ,0, 0, 0}
   };
 
-  while ((opt = getopt_long(argc, argv, "f:?", long_options, NULL)) != EOF) {
+  while ((opt = getopt_long(argc, argv, "p:f:?", long_options, NULL)) != EOF) {
     switch (opt) {
       case 'f':
         input_file_name = optarg;
+        break;
+      case 'p':
+        numProcessors = atoi(optarg);
         break;
       case '?':
       default:
@@ -53,8 +60,8 @@ int main(int argc, char** argv) {
     method = BFS;
   } else if (strcmp(solverName, "IDA") == 0) {
     method = IDA;
-  } else if (strcmp(solverName, "IDAPARA") == 0) {
-    method = IDA_PARA;
+  } else if (strcmp(solverName, "IDA_MPI") == 0) {
+    method = IDA_MPI;
     // printf("asdf");
   } else {
     fprintf(stderr, "Unknown method name (%s)\n", solverName);
@@ -100,11 +107,13 @@ int main(int argc, char** argv) {
   }
   // end parsing input file for cube spec //////////////////////////////////////
 
-  Solver solver(method);
+  Solver solver(method, numProcessors);
 
   // start execution and benchmark /////////////////////////////////////////////
   int solution[MAX_DEPTH];
   int num_steps;
 
+  if (method = IDA_MPI) MPI_Init(&argc, &argv);
   solver.solve(cube, solution, &num_steps);
+  if (method = IDA_MPI) MPI_Finalize();
 }

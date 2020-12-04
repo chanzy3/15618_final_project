@@ -10,6 +10,7 @@
 #include <cstring>
 #include <functional>
 #include <vector>
+#include <cstdint>
 #include <unordered_set>
 
 #define COLOR uint8_t
@@ -86,7 +87,7 @@ struct CubeHash {
 };
 
 typedef Cube cube_t;
-using CubeSet = std::unordered_set<Cube, CubeHash>;
+typedef std::unordered_set<Cube, CubeHash> CubeSet;
 
 cube_t *cube_new(bool init);
 cube_t *cube_cpy(cube_t *cube);

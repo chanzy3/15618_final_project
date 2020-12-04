@@ -15,7 +15,7 @@
 enum method {
   BFS = 0,
   IDA = 1,
-  IDA_PARA = 2
+  IDA_MPI = 2
 };
 
 #define UPDATE_TAG 1
@@ -28,13 +28,13 @@ class Solver {
 public:
 
 
-  Solver(enum method method) : method(method), corner_db() {
+  Solver(enum method method, int numProcessors) : method(method), corner_db() {
     switch (method) {
       case IDA:
-        ida_init();
+        ida_init(numProcessors);
         break;
-      case IDA_PARA:
-        ida_init();
+      case IDA_MPI:
+        ida_init(numProcessors);
         break;
       default:
         break;
@@ -47,13 +47,7 @@ public:
 #define MAX_DEPTH 26 // TODO(tianez):
 #define DEPTH_LIMIT 6 // must be smaller than MAX_DEPTH
 
-typedef struct {
-  int bound;
-  int depth;
-  int branch_id;
-  int solution[MAX_DEPTH];
-  
-} ans_t;
+
 
   bool solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
@@ -62,12 +56,14 @@ typedef struct {
 
 private:
   enum method method;
-
+  int numProcessors;
+  int processorId;
 
 
   bool bfs_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
-  void ida_init();
+  void ida_init(int numProcessors);
+  void ida_init_para();
   void ida_destroy();
   bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
   bool ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
