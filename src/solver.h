@@ -67,6 +67,7 @@ private:
   void ida_destroy();
   bool ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
   bool ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
+  void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db);
   // bool ida_para_helper(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, bool &t, node_t **path, CubeSet &cubes);
 
   paracube::CornerPatternDatabase corner_db;

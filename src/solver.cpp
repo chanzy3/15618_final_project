@@ -159,9 +159,11 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
     exit(0);
   }
-  if (this->method == IDA_MPI) {
-    if (this->processorId == 0) {
-        for (int i = 0; i < *num_steps; i++)
+  if (this->method == IDA_MPI)
+  {
+    if (this->processorId == 0)
+    {
+      for (int i = 0; i < *num_steps; i++)
       {
         fprintf(stdout, "%s ", to_string(solution[i]));
       }
@@ -171,9 +173,9 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
       double overallDuration = end_time - start_time;
       fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
     }
-    
   }
-  else {
+  else
+  {
     for (int i = 0; i < *num_steps; i++)
     {
       fprintf(stdout, "%s ", to_string(solution[i]));
@@ -184,7 +186,6 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     double overallDuration = end_time - start_time;
     fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
   }
-  
 
   return solution_found;
 }
@@ -255,8 +256,8 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
 char corner_db_input_filename[19] = "data/corner.pdb";
 
-void Solver::ida_init(int numProcessors=1)
-{ 
+void Solver::ida_init(int numProcessors = 1)
+{
   this->numProcessors = numProcessors;
 
   if (!corner_db.fromFile(corner_db_input_filename))
@@ -343,6 +344,7 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
   node_t *node = path[(*d) - 1];
   int f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search h %d\n", f - g);
+  // std::cout << "Depth is : " << *d << std::endl;
 
   //   for (int i = 0; i < node->d; i++)
   //   {
@@ -370,17 +372,18 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
     transition[op](c); // succ->cube
 
-    DBG_PRINTF("!!! %s\n", Solver::to_string(op));
-    for (int i = 0; i < node->d; i++)
-    {
-      DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
-    }
+    // DBG_PRINTF("!!! %s\n", Solver::to_string(op));
+    // DBG_PRINTF("!!! Bound is : %d\n", bound);
+    // for (int i = 0; i < node->d; i++)
+    // {
+    //   DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
+    // }
     // R3 D3 B3 L3 U3 B3 L3 R3
-    DBG_PRINTF("\n");
-    DBG_PRINTF("=========\n");
-    ppp(node->cube);
-    ppp(c);
-    DBG_PRINTF("=========\n");
+    // DBG_PRINTF("\n");
+    // DBG_PRINTF("=========\n");
+    // ppp(node->cube);
+    // ppp(c);
+    // DBG_PRINTF("=========\n");
 
     if (cube_visited(cubes, c))
     {
@@ -430,17 +433,9 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 }
 
 ///////////////////////////////////////////   IDA_MPI   /////////////////////////////////////////////
-/**
- * Define mpi_ans_t
- * typedef struct ans{
-  int bound;
-  int depth;
-  int branch_id;
-  int solution[MAX_DEPTH];
-} ans_t;
- * 
-*/
-typedef struct ans{
+
+typedef struct ans
+{
   int bound;
   int depth;
   int branch_id;
@@ -492,14 +487,38 @@ void run_master(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int so
   while (1)
   {
     // recv t
+    // std::cout << "Receiving messages from worker, nextbound is " << nextBound << std::endl;
     MPI_Recv(&ans, 1, mpi_ans_t, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
-
+    // std::cout << "Finished receiving messages from worker:" << mpi_sta.MPI_SOURCE << std::endl;
     switch (mpi_sta.MPI_TAG)
     {
     case ALLOCATE_TAG:
-      if (branch_id < TRANSITION_COUNT)
+      // std::cout << "Allocating tags" << std::endl;
+      if (nextBound == FOUND)
       {
-        // prepare buffer to send to worker node
+        numWorkers--;
+        // std::cout << "Sending Abort information" << std::endl;
+
+        MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE,
+                 ABORT_TAG, MPI_COMM_WORLD);
+        // std::cout << "Finish sending abort information to worker:  " << mpi_sta.MPI_SOURCE << std::endl;
+        std::cout << numWorkers << ", number of workers remaining: " << std::endl;
+        if (numWorkers == 0)
+        {
+          // std::cout << "Exiting " << std::endl;
+          return;
+        }
+      }
+      else
+      {
+        if (branch_id == TRANSITION_COUNT) {
+          bound = nextBound;
+          nextBound = INFTY;
+          branch_id = 0;
+        }
+        // if (branch_id < TRANSITION_COUNT)
+        // {
+          // prepare buffer to send to worker node
         buf.branch_id = branch_id;
         buf.bound = bound;
         memcpy(buf.solution, ans.solution, sizeof(int) * MAX_DEPTH);
@@ -508,42 +527,46 @@ void run_master(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int so
         MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
         // std::cout << "branch_id:" << branch_id << std::endl;
         branch_id++;
-      }
-      // Finish iterative deepening for bound
-      else
-      {
-        // set the bound to nextBound and start assigning jobs again
-        // bound = nextBound;
+        // }
+        // Finish iterative deepening for bound
+        // else
+        // {
+        //   // set the bound to nextBound and start assigning jobs again
+        //   // bound = nextBound;
 
-        // If bound is 0, we found a solution, abort the rest nodes
-        if (nextBound == FOUND)
-        {
-          numWorkers--;
-          MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE,
-                   ABORT_TAG, MPI_COMM_WORLD);
-          std::cout << numWorkers << "numOWrkdr" << std::endl;
-          if (numWorkers == 0)
-            return;
-        }
+        //   // If bound is 0, we found a solution, abort the rest nodes
 
-        // If boun is not 0, solution not found yet,
-        else
-        {
-          nextBound = INFTY;
-          branch_id = 0;
-        }
+        //   // MPI_Finalize();
+
+        //   // If boun is not 0, solution not found yet,
+        //   bound = nextBound;
+        //   nextBound = INFTY;
+        //   branch_id = 0;
+
+        //   buf.branch_id = branch_id;
+        //   buf.bound = bound;
+        //   memcpy(buf.solution, ans.solution, sizeof(int) * MAX_DEPTH);
+        //   buf.depth = 1;
+
+        //   MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
+        //   branch_id++;
+        // }
       }
+
       break;
 
     case UPDATE_TAG:
+      // std::cout << "Update tag recieved !" << std::endl;
       // one worker node found the solution, update solution and depth
+      //std::cout << "Bound master is:" << ans.bound << std::endl;
       if (ans.bound == FOUND && flag == false)
       {
         memcpy(solution, ans.solution, sizeof(int) * MAX_DEPTH);
-        *num_steps = ans.depth;
-        std::cout  << "Found solution!" << std::endl;
-        for (int i = 0; i < *num_steps; i++) {
-          std::cout << Solver::to_string(solution[i]) << " d";
+        *num_steps = ans.depth+1;
+        // std::cout  << "Found solution!" << std::endl;
+        for (int i = 0; i < *num_steps; i++)
+        {
+          std::cout << Solver::to_string(solution[i]) << " ";
         }
         std::cout << std::endl;
         flag = true;
@@ -554,11 +577,12 @@ void run_master(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int so
   }
 }
 
-void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
+void Solver::run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
 {
   MPI_Status mpi_sta;
   ans_t ans;
   ans_t buf;
+  ans_t res;
   int depth;
   int bound;
   int op;
@@ -566,13 +590,23 @@ void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
   node_t *path[MAX_DEPTH];
   node_t *n;
   cube_t *c;
-  
+
   CubeSet cubes;
 
   while (1)
   {
+    // if (this->processorId == 3) {
+    //   std::cout << "Sending allocating message" << std::endl;
+    // }
+    // std::cout << "worker id: " << this->processorId << "Sending allocating message" << std::endl;
     MPI_Send(&ans, 1, mpi_ans_t, 0, ALLOCATE_TAG, MPI_COMM_WORLD);
+    // std::cout << "worker id: " << this->processorId << "Finish sending allocating message" << std::endl;
+    //  if (this->processorId == 1) {
+    // std::cout << "Finish sending allocating message" << std::endl;
+    // }
+    // std::cout << "worker: " << this->processorId  << " Wating for recieve buffer form master" << std::endl;
     MPI_Recv(&buf, 1, mpi_ans_t, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
+    // std::cout << "worker: " << this->processorId << "  Finished receiving buffer form master" << std::endl;
 
     switch (mpi_sta.MPI_TAG)
     {
@@ -597,49 +631,49 @@ void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
       //cubes.clear();
 
       bound = buf.bound;
-      ans.bound = search(corner_db, path, &depth, cubes, 0, bound);
-      n = path[depth - 1];
-      ans.depth = n->d - 1;
-      memcpy(ans.solution, n->steps, MAX_DEPTH * sizeof(int));
-      // if (ans.bound == 0) {
-      //   std::cout << "workerNode" << std::endl;
 
-      //   for (int i = 0; i < ans.depth; i++) {
-      //     std::cout << Solver::to_string(ans.solution[i]) << " ";
-      //   }
-      //   std::cout << std::endl;
-        
-      // }
-      MPI_Send(&ans, 1, mpi_ans_t, 0, UPDATE_TAG, MPI_COMM_WORLD);
-      
+      res.bound = search(corner_db, path, &depth, cubes, 0, bound);
+      n = path[depth - 1];
+      res.depth = n->d - 1;
+      memcpy(res.solution, n->steps, MAX_DEPTH * sizeof(int));
+
+      MPI_Send(&res, 1, mpi_ans_t, 0, UPDATE_TAG, MPI_COMM_WORLD);
+
       break;
     case ABORT_TAG:
+      // std::cout << "Aborting tasks: " << this->processorId <<  std::endl;
       return;
     }
   }
 }
 
-bool Solver::ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool Solver::ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
+{
 
-  if (numProcessors == 1) {
+  if (numProcessors == 1)
+  {
     ida_solve(cube, solution, num_steps);
   }
-  else {
+  else
+  {
     // std::cout << "I'm here" << std::endl;
-    MPI_Comm_size(MPI_COMM_WORLD , &numProcessors);
+    MPI_Comm_size(MPI_COMM_WORLD, &numProcessors);
     MPI_Comm_rank(MPI_COMM_WORLD, &this->processorId);
 
     mpi_ans_t = createType();
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    if (this->processorId == 0){
-     run_master(&this->corner_db, cube, solution, num_steps);
-     for (int i = 0; i < *num_steps; i++) {
-       std::cout << to_string(solution[i]) << " ";
-     }
-     std::cout << std::endl;
+    if (this->processorId == 0)
+    {
+      run_master(&this->corner_db, cube, solution, num_steps);
+      //  for (int i = 0; i < *num_steps; i++) {
+      //    std::cout << to_string(solution[i]) << " ";
+      //  }
+      //  std::cout << std::endl;
     }
     else
       run_worker(cube, &this->corner_db);
+    MPI_Barrier(MPI_COMM_WORLD);
     return true;
   }
 }
