@@ -172,6 +172,7 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
       // print timing
       double overallDuration = end_time - start_time;
       fprintf(stdout, "Overall: %.3f ms\n", 1000.f * overallDuration);
+      MPI_Abort(MPI_COMM_WORLD, 0);
     }
   }
   else
@@ -570,6 +571,7 @@ void run_master(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int so
         }
         std::cout << std::endl;
         flag = true;
+        return;
       }
       nextBound = std::min(nextBound, ans.bound);
       break;
@@ -673,7 +675,8 @@ bool Solver::ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps
     }
     else
       run_worker(cube, &this->corner_db);
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
     return true;
   }
 }
+
