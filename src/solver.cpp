@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cstdint>
 
 #include "cycleTimer.h"
 #include "solver.h"
@@ -15,6 +16,7 @@
 extern int numProcessors;
 extern int processorId;
 MPI_Datatype mpi_ans_t;
+MPI_Datatype mpi_ans_t2;
 // transition functions
 void (*transition[TRANSITION_COUNT])(cube_t *) =
     {
@@ -98,6 +100,7 @@ node_t *node_new()
   {
     perror("malloc node");
     exit(1);
+    ;
   }
 
   node->cube = cube_new(false);
@@ -147,6 +150,9 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
   case IDA_MPI:
     solution_found = ida_solve_mpi(cube, solution, num_steps);
     break;
+  case IDA_MPI2:
+    solution_found = ida_solve_mpi_v2(cube, solution, num_steps);
+    break;
   default:
     fprintf(stderr, "unknown method %d\n", this->method);
     exit(1);
@@ -159,7 +165,7 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
     exit(0);
   }
-  if (this->method == IDA_MPI)
+  if (this->method == IDA_MPI || this->method == IDA_MPI2)
   {
     if (this->processorId == 0)
     {
@@ -328,6 +334,7 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
       return false;
     }
     bound = t;
+    std::cout << "Bound is" << bound << std::endl;
   }
 
   // TODO(tianez): free entire path from 0 to d (inc)
@@ -487,83 +494,48 @@ void run_master(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int so
 
   while (1)
   {
-    // recv t
-    // std::cout << "Receiving messages from worker, nextbound is " << nextBound << std::endl;
     MPI_Recv(&ans, 1, mpi_ans_t, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
-    // std::cout << "Finished receiving messages from worker:" << mpi_sta.MPI_SOURCE << std::endl;
     switch (mpi_sta.MPI_TAG)
     {
     case ALLOCATE_TAG:
-      // std::cout << "Allocating tags" << std::endl;
       if (nextBound == FOUND)
       {
         numWorkers--;
-        // std::cout << "Sending Abort information" << std::endl;
 
         MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE,
                  ABORT_TAG, MPI_COMM_WORLD);
-        // std::cout << "Finish sending abort information to worker:  " << mpi_sta.MPI_SOURCE << std::endl;
         std::cout << numWorkers << ", number of workers remaining: " << std::endl;
         if (numWorkers == 0)
         {
-          // std::cout << "Exiting " << std::endl;
           return;
         }
       }
       else
       {
-        if (branch_id == TRANSITION_COUNT) {
+        if (branch_id == TRANSITION_COUNT)
+        {
           bound = nextBound;
           nextBound = INFTY;
           branch_id = 0;
         }
-        // if (branch_id < TRANSITION_COUNT)
-        // {
-          // prepare buffer to send to worker node
+
         buf.branch_id = branch_id;
         buf.bound = bound;
         memcpy(buf.solution, ans.solution, sizeof(int) * MAX_DEPTH);
         buf.depth = 1;
 
         MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
-        // std::cout << "branch_id:" << branch_id << std::endl;
         branch_id++;
-        // }
-        // Finish iterative deepening for bound
-        // else
-        // {
-        //   // set the bound to nextBound and start assigning jobs again
-        //   // bound = nextBound;
-
-        //   // If bound is 0, we found a solution, abort the rest nodes
-
-        //   // MPI_Finalize();
-
-        //   // If boun is not 0, solution not found yet,
-        //   bound = nextBound;
-        //   nextBound = INFTY;
-        //   branch_id = 0;
-
-        //   buf.branch_id = branch_id;
-        //   buf.bound = bound;
-        //   memcpy(buf.solution, ans.solution, sizeof(int) * MAX_DEPTH);
-        //   buf.depth = 1;
-
-        //   MPI_Send(&buf, 1, mpi_ans_t, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
-        //   branch_id++;
-        // }
       }
 
       break;
 
     case UPDATE_TAG:
-      // std::cout << "Update tag recieved !" << std::endl;
-      // one worker node found the solution, update solution and depth
-      //std::cout << "Bound master is:" << ans.bound << std::endl;
+
       if (ans.bound == FOUND && flag == false)
       {
         memcpy(solution, ans.solution, sizeof(int) * MAX_DEPTH);
-        *num_steps = ans.depth+1;
+        *num_steps = ans.depth + 1;
         // std::cout  << "Found solution!" << std::endl;
         for (int i = 0; i < *num_steps; i++)
         {
@@ -597,18 +569,10 @@ void Solver::run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db
 
   while (1)
   {
-    // if (this->processorId == 3) {
-    //   std::cout << "Sending allocating message" << std::endl;
-    // }
-    // std::cout << "worker id: " << this->processorId << "Sending allocating message" << std::endl;
+
     MPI_Send(&ans, 1, mpi_ans_t, 0, ALLOCATE_TAG, MPI_COMM_WORLD);
-    // std::cout << "worker id: " << this->processorId << "Finish sending allocating message" << std::endl;
-    //  if (this->processorId == 1) {
-    // std::cout << "Finish sending allocating message" << std::endl;
-    // }
-    // std::cout << "worker: " << this->processorId  << " Wating for recieve buffer form master" << std::endl;
+
     MPI_Recv(&buf, 1, mpi_ans_t, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
-    // std::cout << "worker: " << this->processorId << "  Finished receiving buffer form master" << std::endl;
 
     switch (mpi_sta.MPI_TAG)
     {
@@ -617,8 +581,6 @@ void Solver::run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db
       op = buf.branch_id;
 
       root = node_new_from_cube(cube);
-
-      // node_t *path[MAX_DEPTH];
 
       path[0] = root;
       // perform on original cube, search one more step
@@ -643,7 +605,6 @@ void Solver::run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db
 
       break;
     case ABORT_TAG:
-      // std::cout << "Aborting tasks: " << this->processorId <<  std::endl;
       return;
     }
   }
@@ -668,10 +629,6 @@ bool Solver::ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps
     if (this->processorId == 0)
     {
       run_master(&this->corner_db, cube, solution, num_steps);
-      //  for (int i = 0; i < *num_steps; i++) {
-      //    std::cout << to_string(solution[i]) << " ";
-      //  }
-      //  std::cout << std::endl;
     }
     else
       run_worker(cube, &this->corner_db);
@@ -680,3 +637,240 @@ bool Solver::ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps
   }
 }
 
+/////////////////////////////MPIDA Version1 //////////////////////////////////////////
+
+// Expand as many frontier nodes as the number of processors in the first expansion
+// Performed on master node
+typedef struct ans2
+{
+  int bound;
+  int depth;
+  int is_partial;
+  int contract_size;
+  int solution[MAX_DEPTH];
+} ans_t2;
+
+MPI_Datatype createType_v2()
+{
+  MPI_Datatype new_type;
+  const int nitems = 5;
+  MPI_Datatype types[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+  MPI_Aint offsets[5];
+  int blocklens[5] = {1, 1, 1, 1, MAX_DEPTH};
+
+  offsets[0] = offsetof(ans_t2, bound);
+  offsets[1] = offsetof(ans_t2, depth);
+  offsets[2] = offsetof(ans_t2, is_partial);
+  offsets[3] = offsetof(ans_t2, contract_size);
+  offsets[4] = offsetof(ans_t, solution);
+
+  MPI_Type_create_struct(nitems, blocklens, offsets, types, &new_type);
+  MPI_Type_commit(&new_type);
+  return new_type;
+}
+
+std::vector<node_t *> bfs_expand(cube_t *cube, int num_workers, bool &is_partial, int &contract_size)
+{
+  std::vector<node_t *> frontier_nodes;
+  node_t *root = node_new_from_cube(cube);
+  frontier_nodes.push_back(root);
+  node_t *n_parent, *n;
+
+  while ((int)frontier_nodes.size() < num_workers)
+  {
+    n_parent = frontier_nodes.front();
+    frontier_nodes.erase(frontier_nodes.begin());
+    for (int op = 0; op < TRANSITION_COUNT; op++)
+    {
+
+      // partial contraction to parents is number of decesdents exceed the number of workers
+      // In this case, the last node will be the contraction node
+      if (frontier_nodes.size() >= num_workers)
+      {
+        frontier_nodes.pop_back();
+        frontier_nodes.push_back(n_parent);
+        contract_size = op - 1;
+        is_partial = true;
+        return frontier_nodes;
+      }
+      n = node_cpy(n_parent);
+
+      n->steps[n->d] = op;
+      n->d++;
+      transition[op](n->cube);
+
+      frontier_nodes.push_back(n);
+    }
+  }
+  return frontier_nodes;
+}
+
+void run_master_v2(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
+{
+  bool is_partial = false;
+  int contract_size = 0;
+  MPI_Status mpi_sta;
+  int num_workers = numProcessors - 1;
+  ans_t2 buf;
+  ans_t2 ans;
+  int num_messages_recv = 0;
+
+  int bound = INFTY;
+  int next_bound = INFTY;
+
+  node_t *n;
+
+  std::vector<node_t *> frontier_nodes;
+  frontier_nodes = bfs_expand(cube, num_workers, is_partial, contract_size);
+
+  // intial bound is the minimum of the f value of frontier nodes
+  for (int i = 0; i < frontier_nodes.size(); i++)
+  {
+    n = frontier_nodes[i];
+    bound = std::min(bound, n->d + h(corner_db, n, n->d));
+  }
+
+  // assign work to number of workers
+  for (int i = 0; i < num_workers; i++)
+  {
+    n = frontier_nodes[i];
+    buf.bound = bound;
+    buf.depth = n->d;
+    memcpy(buf.solution, n->steps, n->d * sizeof(int));
+    buf.is_partial = 0;
+    buf.contract_size = 0;
+    if (i == num_workers - 1)
+    {
+      if (is_partial)
+      {
+        buf.is_partial = true;
+        buf.contract_size = contract_size;
+      }
+    }
+
+    MPI_Send(&buf, 1, mpi_ans_t2, i + 1, START_TAG, MPI_COMM_WORLD);
+  }
+
+  while (1)
+  {
+    MPI_Recv(&ans, 1, mpi_ans_t2, MPI_ANY_SOURCE, FINISH_TAG, MPI_COMM_WORLD, &mpi_sta);
+    if (ans.bound == FOUND)
+    {
+      memcpy(solution, ans.solution, sizeof(int) * MAX_DEPTH);
+      *num_steps = ans.depth + 1;
+      // Abort MPI_COMM immediately, this will cause speedup anomaly
+      return;
+    }
+    if (ans.bound < next_bound)
+    {
+      next_bound = ans.bound;
+    }
+    num_messages_recv++;
+    if (num_messages_recv == num_workers)
+    {
+      bound = next_bound;
+      next_bound = INFTY;
+      num_messages_recv = 0;
+      // broadcast bound to every worker node
+      for (int i = 0; i < num_workers; i++)
+      {
+        MPI_Send(&bound, 1, MPI_INT, i + 1, UPDATE_TAG, MPI_COMM_WORLD);
+      }
+    }
+  }
+}
+
+void run_worker_v2(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
+{
+  MPI_Status mpi_sta;
+  ans_t2 ans;
+  ans_t2 buf;
+  int depth;
+  int bound;
+  int is_partial;
+  int contract_size;
+  CubeSet cubes;
+  int steps[MAX_DEPTH];
+  node_t *root, *cur_n;
+  cube_t *c;
+  node_t *path[MAX_DEPTH];
+  int op;
+
+  while (1)
+  {
+    MPI_Recv(&buf, 1, mpi_ans_t2, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
+
+    if (mpi_sta.MPI_TAG == START_TAG)
+    {
+      root = node_new_from_cube(cube);
+      bound = buf.bound;
+
+      path[0] = root;
+      cur_n = node_cpy(root);
+      cubes.insert(*(cur_n->cube));
+      memcpy(steps, buf.solution, MAX_DEPTH * sizeof(int));
+      is_partial = buf.is_partial;
+      contract_size = buf.contract_size;
+
+      depth = buf.depth;
+      for (int i = 0; i < depth; i++)
+      {
+        op = steps[i];
+        cur_n = node_cpy(cur_n);
+        c = cur_n->cube;
+        transition[op](c);
+        cur_n->d++;
+        cur_n->steps[i] = op;
+        cubes.insert(*(cur_n->cube));
+        path[i + 1] = cur_n;
+      }
+
+      // If partial contraction, make sure add indications of nodes that are added to
+      // other nodes
+      if (is_partial == 1)
+      {
+        cur_n = path[depth];
+        for (op = 0; op < contract_size; op++)
+        {
+          cur_n = node_cpy(cur_n);
+          c = cur_n->cube;
+          transition[op](c);
+          cubes.insert(*(cur_n->cube));
+        }
+      }
+      depth++;
+    }
+    else if (mpi_sta.MPI_TAG == UPDATE_TAG)
+      bound = buf.bound;
+    std::cout << "Bound is :" << buf.bound << std::endl;
+
+    ans.bound = search(corner_db, path, &depth, cubes, depth - 1, bound);
+    cur_n = path[depth - 1];
+    ans.depth = cur_n->d - 1;
+    memcpy(ans.solution, cur_n->steps, MAX_DEPTH * sizeof(int));
+
+    MPI_Send(&ans, 1, mpi_ans_t2, 0, FINISH_TAG, MPI_COMM_WORLD);
+  }
+}
+
+bool Solver::ida_solve_mpi_v2(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
+{
+  if (numProcessors == 1)
+    ida_solve(cube, solution, num_steps);
+  else
+  {
+    MPI_Comm_size(MPI_COMM_WORLD, &numProcessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &this->processorId);
+
+    mpi_ans_t2 = createType_v2();
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (this->processorId == 0)
+    {
+      run_master_v2(&this->corner_db, cube, solution, num_steps);
+    }
+    else
+      run_worker_v2(cube, &this->corner_db);
+    return true;
+  }
+}
