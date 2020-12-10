@@ -19,7 +19,7 @@ public:
 
   }
 
-  bool solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) override;
+  bool solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps); // override;
 
 private:
 

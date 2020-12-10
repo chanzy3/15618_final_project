@@ -21,7 +21,11 @@ enum method {
 class Solver {
 
 public:
-  Solver() {
+  Solver() : transition{
+          F1, B1, L1, R1, U1, D1,
+          F2, B2, L2, R2, U2, D2,
+          F3, B3, L3, R3, U3, D3,
+      } {
   }
 
   bool timedSolve(cube_t *cube);
@@ -32,13 +36,8 @@ public:
 
 protected:
 #define TRANSITION_COUNT 18
-// transition functions
-  void (*transition[TRANSITION_COUNT])(cube_t *) =
-      {
-          F1, B1, L1, R1, U1, D1,
-          F2, B2, L2, R2, U2, D2,
-          F3, B3, L3, R3, U3, D3,
-      };
+  // transition functions
+  void (*transition[TRANSITION_COUNT])(cube_t *);
 };
 
 // search node
