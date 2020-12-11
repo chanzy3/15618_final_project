@@ -2,9 +2,9 @@
 // Created by Tiane Zhu on 12/10/20.
 //
 
-#include "solver_ida_iter_seq.h"
+#include <algorithm>
 
-#define MIN(a, b) a < b ? a : b;
+#include "solver_ida_iter_seq.h"
 
 #define PRUNE
 
@@ -113,7 +113,7 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
         // TODO(tianez):
         return -1; // don't free root
       } else {
-        n_prev->min = MIN(n_prev->min, n_curr->min);
+        n_prev->min = std::min(n_prev->min, n_curr->min);
 
         // node_iter_destroy(n_curr); // stack.pop
         // path[path_d - 1] = NULL;
@@ -156,7 +156,7 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
       }
 
       if (f > bound) { // discard
-        n_curr->min = MIN(n_curr->min, f);
+        n_curr->min = std::min((int) n_curr->min, f);
         // node_iter_destroy(n_next);
       } else {
         // path[path_d] = n_next; // stack.push
