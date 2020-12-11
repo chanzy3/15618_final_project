@@ -1,42 +1,18 @@
 //
-// Created by Tiane Zhu on 12/10/20.
+// Created by Tiane Zhu on 12/11/20.
 //
 
 #include <algorithm>
 
-#include "solver_ida_iter_seq.h"
+#include "solver_ida_iter_omp.h"
 
 #define PRUNE
 
-#ifdef PRINT_PATH
-#define PPATH(p, d) { \
-  for (int i=0; i<d; i++) { \
-    printf("%s ", Solver::to_string(p[i].op - 1)); \
-  } \
-  printf("\n"); \
-}
-#else
-#define PPATH(p, d)
-#endif
-
-#ifdef PRINT_PATH
-#define PWPATH(p, pd) { \
-  for (int i=0; i<pd; i++) { \
-    printf("(_, %d, %d, %d, %s) ", p[i]->g, p[i]->d, p[i]->min, Solver::to_string(p[i]->op - 1)); \
-  } \
-  printf("\n"); \
-}
-#else
-#define PWPATH(p, d)
-#endif
-
-int ggg=0;
-
-bool SolverIdaIterSeq::solve(cube_t *cube, int *solution, int *num_steps) {
-  return ida_solve_iter_seq(cube, solution, num_steps);
+bool SolverIdaIterOmp::solve(cube_t *cube, int *solution, int *num_steps) {
+  return ida_solve_iter_omp(cube, solution, num_steps);
 }
 
-bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   // TODO(tianez): trade extra computation to save memory:
   // redefine path into a list of ints (ops) and save only 1 cube:
   // likely not needed since IDA is memory constrained
@@ -56,7 +32,7 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
     root->op = 0;
     root->min = INFTY;
 
-    int solution_length = search_iter_seq(&this->corner_db, path, bound);
+    int solution_length = search_iter_omp(&this->corner_db, path, bound);
 
     DBG_PRINTF("t: %d\n\n", t);
     if (solution_length >= 0) {
@@ -65,8 +41,6 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
       for (s = 0; s < solution_length; s++) {
         solution[s] = (path[s].op) - 1;
       }
-
-      printf("transitions: %d\n", ggg);
 
       return true;
     }
@@ -84,7 +58,11 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
   return false;
 }
 
-int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound) {
+int SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound) {
+  return search_iter_omp_helper(corner_db, path, bound);
+}
+
+int SolverIdaIterOmp::search_iter_omp_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound) {
   node_iter_t *root = &(path[0]);
   int path_d = 1; // start from index 1
 
@@ -92,26 +70,26 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
     return FOUND;
   }
 
+  int starting_depth = 1; //
+
   // TODO(tianez): correct cond?
   while (1) {
     node_iter_t *n_curr = &(path[path_d - 1]); // curr node
     node_iter_t *n_prev = path_d == 1 ? NULL : n_curr - 1;
 
 #ifdef PRUNE
-    if (n_prev != NULL) {
-      while (can_prune(n_prev->op - 1, n_curr->op)) {
-        n_curr->op++; // skip an op
-      }
+    if (n_prev != NULL && can_prune(n_prev->op - 1, n_curr->op)) {
+      n_curr->op++; // skip an op
     }
 #endif
 
-    PPATH(path, path_d);
+    // PPATH(path, path_d);
     // PWPATH(path, path_d);
 
     if (n_curr->op >= TRANSITION_COUNT) {
       // finished all ops
 
-      if (path_d == 1) {
+      if (path_d == starting_depth) {
         // TODO(tianez):
         return -1; // don't free root
       } else {
@@ -132,7 +110,6 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
       // problem internal state: min, op (iterate from 0 - 17)
 
       // cube
-      ggg++;
       transition[n_curr->op](&(n_next->cube));
       (n_curr->op)++; // go to next op
       // g
@@ -166,50 +143,5 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
       }
     }
   }
-
-  /*
-  for(int op=0; op<TRANSITION_COUNT; op++) {
-    node_t *n = node_cpy(node);
-    cube_t *c = n->cube;
-
-    transition[op](c); // succ->cube
-
-    DBG_PRINTF("!!! %s\n", Solver::to_string(op));
-    for (int i=0; i<node->d; i++) {
-      DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
-    }
-    DBG_PRINTF("\n");
-    DBG_PRINTF("=========\n");
-    ppp(node->cube);
-    ppp(c);
-    DBG_PRINTF("=========\n");
-
-    n->steps[n->d] = op;
-    n->d++;
-
-    // path.push(succ)
-    path[*d] = n;
-    (*d)++;
-
-    int t = search_seq(corner_db, path, d, g + cost(node, n), bound);
-
-    if (t == FOUND) {
-      return FOUND;
-    }
-
-    if (t < min) {
-      min = t;
-    }
-
-    // path.pop()
-    (*d)--;
-
-    free(c);
-    free(n);
-  }
-
-  // TODO(tianez): remove, now at root->min
-  // return min;
-  */
 }
 

@@ -17,6 +17,8 @@ OBJS=$(OBJDIR)/main.o  $(OBJDIR)/cube.o $(OBJDIR)/solver.o \
         $(OBJDIR)/solver_ida_rec_omp.o \
         $(OBJDIR)/solver_ida_rec_seq.o \
         $(OBJDIR)/solver_ida_iter_base.o \
+        $(OBJDIR)/solver_ida_iter_omp.o \
+        $(OBJDIR)/solver_ida_iter_omp_base.o \
         $(OBJDIR)/solver_ida_iter_seq.o \
         $(OBJDIR)/util/NibbleArray.o \
         $(OBJDIR)/util/RubiksCubeException.o \
