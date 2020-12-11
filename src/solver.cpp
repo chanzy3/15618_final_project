@@ -115,3 +115,14 @@ void node_destroy(node_t *node) {
   free(node);
 }
 
+bool can_prune(int prev_op, int op) {
+  int u = prev_op % 6;
+  int v = op % 6;
+  // u even -> prev_op F, L, U
+  //
+  // u == v :     e.g. Fx followed by Fy
+  // v - u == 1 : e.g. Fx followed by By (commutative)
+
+  return (u == v) || (v - u == 1 && (u % 2 == 0));
+}
+

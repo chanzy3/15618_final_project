@@ -46,4 +46,6 @@ node_t *node_new_from_cube(cube_t* cube);
 node_t *node_cpy(node_t *node);
 void node_destroy(node_t *node);
 
+bool can_prune(int prev_op, int op);
+
 #endif //INC_15618_FINAL_PROJECT_SOLVER_H

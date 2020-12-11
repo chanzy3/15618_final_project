@@ -6,6 +6,8 @@
 
 #define MIN(a, b) a < b ? a : b;
 
+#define PRUNE
+
 #ifdef PRINT_PATH
 #define PPATH(p, d) { \
   for (int i=0; i<d; i++) { \
@@ -27,6 +29,8 @@
 #else
 #define PWPATH(p, d)
 #endif
+
+int ggg=0;
 
 bool SolverIdaIterSeq::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_iter_seq(cube, solution, num_steps);
@@ -62,6 +66,8 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
         solution[s] = (path[s].op) - 1;
       }
 
+      printf("transitions: %d\n", ggg);
+
       return true;
     }
 
@@ -89,6 +95,13 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
   // TODO(tianez): correct cond?
   while (1) {
     node_iter_t *n_curr = &(path[path_d - 1]); // curr node
+    node_iter_t *n_prev = path_d == 1 ? NULL : n_curr - 1;
+
+#ifdef PRUNE
+    if (n_prev != NULL && can_prune(n_prev->op - 1, n_curr->op)) {
+      n_curr->op++; // skip an op
+    }
+#endif
 
     PPATH(path, path_d);
     // PWPATH(path, path_d);
@@ -100,8 +113,6 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
         // TODO(tianez):
         return -1; // don't free root
       } else {
-        node_iter_t *n_prev = n_curr - 1;
-
         n_prev->min = MIN(n_prev->min, n_curr->min);
 
         // node_iter_destroy(n_curr); // stack.pop
@@ -119,6 +130,7 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
       // problem internal state: min, op (iterate from 0 - 17)
 
       // cube
+      ggg++;
       transition[n_curr->op](&(n_next->cube));
       (n_curr->op)++; // go to next op
       // g

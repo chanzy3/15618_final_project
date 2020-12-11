@@ -8,6 +8,8 @@
 
 #include "solver_ida_seq.h"
 
+int gggg = 0;
+
 bool SolverIdaSeq::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_seq(cube, solution, num_steps);
 }
@@ -39,6 +41,8 @@ bool SolverIdaSeq::ida_solve_seq(cube_t *cube, int solution[MAX_DEPTH], int *num
         DBG_PRINTF("%d ", solution[i]);
       }
       DBG_PRINTF("\n");
+
+      printf("transitions: %d\n", gggg);
       return true;
     }
     if (t == INFTY) {
@@ -79,6 +83,7 @@ int SolverIdaSeq::search_seq(paracube::CornerPatternDatabase *corner_db, node_t 
     node_t *n = node_cpy(node);
     cube_t *c = n->cube;
 
+    gggg++;
     transition[op](c); // succ->cube
 
     DBG_PRINTF("!!! %s\n", Solver::to_string(op));
