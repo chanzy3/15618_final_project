@@ -2,16 +2,16 @@
 // Created by Tiane Zhu on 11/30/20.
 //
 
-#ifndef INC_15618_FINAL_PROJECT_SOLVER_IDA_SEQ_H
-#define INC_15618_FINAL_PROJECT_SOLVER_IDA_SEQ_H
+#ifndef INC_15618_FINAL_PROJECT_SOLVER_IDA_REC_SEQ_H
+#define INC_15618_FINAL_PROJECT_SOLVER_IDA_REC_SEQ_H
 
 #include "solver_ida_base.h"
 
-class SolverIdaSeq : public SolverIdaBase {
+class SolverIdaRecSeq : public SolverIdaBase {
 
 public:
 
-  SolverIdaSeq() : SolverIdaBase() {
+  SolverIdaRecSeq() : SolverIdaBase() {
 
   }
 
@@ -24,4 +24,4 @@ private:
   int search_seq(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound);
 };
 
-#endif //INC_15618_FINAL_PROJECT_SOLVER_IDA_SEQ_H
+#endif //INC_15618_FINAL_PROJECT_SOLVER_IDA_REC_SEQ_H

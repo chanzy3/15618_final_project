@@ -2,18 +2,18 @@
 // Created by Tiane Zhu on 11/30/20.
 //
 
-#ifndef INC_15618_FINAL_PROJECT_IDA_OMP_SOLVER_H
-#define INC_15618_FINAL_PROJECT_IDA_OMP_SOLVER_H
+#ifndef INC_15618_FINAL_PROJECT_IDA_REC_OMP_SOLVER_H
+#define INC_15618_FINAL_PROJECT_IDA_REC_OMP_SOLVER_H
 
 #include <omp.h>
 
 #include "solver_ida_base.h"
 
-class SolverIdaOmp : public SolverIdaBase {
+class SolverIdaRecOmp : public SolverIdaBase {
 
 public:
 
-  SolverIdaOmp(int num_threads) : SolverIdaBase() {
+  SolverIdaRecOmp(int num_threads) : SolverIdaBase() {
     omp_set_num_threads(num_threads);
     omp_init_lock(&printlock);
   }
@@ -30,4 +30,4 @@ private:
   omp_lock_t printlock;
 };
 
-#endif //INC_15618_FINAL_PROJECT_IDA_OMP_SOLVER_H
+#endif //INC_15618_FINAL_PROJECT_IDA_REC_OMP_SOLVER_H

@@ -6,15 +6,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "solver_ida_seq.h"
+#include "solver_ida_rec_seq.h"
 
 int gggg = 0;
 
-bool SolverIdaSeq::solve(cube_t *cube, int *solution, int *num_steps) {
+bool SolverIdaRecSeq::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_seq(cube, solution, num_steps);
 }
 
-bool SolverIdaSeq::ida_solve_seq(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool SolverIdaRecSeq::ida_solve_seq(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   // TODO(tianez): trade extra computation to save memory:
   // redefine path into a list of ints (ops) and save only 1 cube:
   // likely not needed since IDA is memory constrained
@@ -56,7 +56,7 @@ bool SolverIdaSeq::ida_solve_seq(cube_t *cube, int solution[MAX_DEPTH], int *num
   return false;
 }
 
-int SolverIdaSeq::search_seq(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
+int SolverIdaRecSeq::search_seq(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, int g, int bound) {
   node_t *node = path[(*d) - 1];
   int f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search_seq h %d\n", f - g);

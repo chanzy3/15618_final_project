@@ -8,20 +8,20 @@
 #include "debug.h"
 #include "solver.h"
 #include "solver_bfs.h"
-#include "solver_ida_omp.h"
-#include "solver_ida_seq.h"
+#include "solver_ida_rec_omp.h"
+#include "solver_ida_rec_seq.h"
 #include "solver_ida_iter_seq.h"
 
 enum method {
   BFS = 0,
-  IDA_SEQ = 1,
-  IDA_OMP = 2,
   IDA_ITER_SEQ = 3
+  IDA_REC_SEQ = 1,
+  IDA_REC_OMP = 2,
 };
 
 void usage(const char* progname) {
   printf("Usage: %s [options] method \n", progname);
-  printf("Valid methods are: BFS, IDA_SEQ, IDA_OMP, IDA_ITER_SEQ\n");
+  printf("Valid methods are: BFS, IDA_REC_SEQ, IDA_REC_OMP, IDA_ITER_SEQ\n");
   printf("Program Options:\n");
   printf("  -f  --file  <FILENAME>        Input file name\n");
   printf("  -t  --threads  <NUM_THREADS>  Number of OMP threads, only relevant for IDA_OMP method\n");
@@ -69,10 +69,10 @@ int main(int argc, char** argv) {
 
   if (strcmp(solverName, "BFS") == 0) {
     method = BFS;
-  } else if (strcmp(solverName, "IDA_SEQ") == 0) {
-    method = IDA_SEQ;
-  } else if (strcmp(solverName, "IDA_OMP") == 0) {
-    method = IDA_OMP;
+  } else if (strcmp(solverName, "IDA_REC_SEQ") == 0) {
+    method = IDA_REC_SEQ;
+  } else if (strcmp(solverName, "IDA_REC_OMP") == 0) {
+    method = IDA_REC_OMP;
   } else if (strcmp(solverName, "IDA_ITER_SEQ") == 0) {
     method = IDA_ITER_SEQ;
   } else {
@@ -124,11 +124,11 @@ int main(int argc, char** argv) {
     case BFS:
       SolverBfs().timedSolve(cube);
       break;
-    case IDA_SEQ:
-      SolverIdaSeq().timedSolve(cube);
+    case IDA_REC_SEQ:
+      SolverIdaRecSeq().timedSolve(cube);
       break;
-    case IDA_OMP:
-      SolverIdaOmp(num_omp_threads).timedSolve(cube);
+    case IDA_REC_OMP:
+      SolverIdaRecOmp(num_omp_threads).timedSolve(cube);
       break;
     case IDA_ITER_SEQ:
       SolverIdaIterSeq().timedSolve(cube);

@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "solver_ida_omp.h"
+#include "solver_ida_rec_omp.h"
 
 #define EX_PRINTF(format, ...) { \
   omp_set_lock(&printlock); \
@@ -14,14 +14,14 @@
   omp_unset_lock(&printlock); \
 }
 
-bool SolverIdaOmp::solve(cube_t *cube, int *solution, int *num_steps) {
+bool SolverIdaRecOmp::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_omp(cube, solution, num_steps);
 }
 
 uint8_t iteration_t;
 int depth;
 
-bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool SolverIdaRecOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   // TODO(tianez): trade extra computation to save memory:
   // redefine path into a list of ints (ops) and save only 1 cube:
   // likely not needed since IDA is memory constrained
@@ -78,7 +78,7 @@ bool SolverIdaOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *num
 
 bool found = false;
 
-void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
+void SolverIdaRecOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
   node_t *node = path[(*d) - 1];
   uint8_t f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search_omp_para h %d\n", f - g);
@@ -180,7 +180,7 @@ void SolverIdaOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, n
   }
 }
 
-uint8_t SolverIdaOmp::search_omp(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
+uint8_t SolverIdaRecOmp::search_omp(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
   node_t *node = path[(*d) - 1];
   uint8_t f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search_omp h %d\n", f - g);
