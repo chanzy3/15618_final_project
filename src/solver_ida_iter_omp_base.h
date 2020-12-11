@@ -9,6 +9,12 @@
 
 #include "solver_ida_iter_base.h"
 
+#define OMP_PRINTF(format, ...) { \
+  omp_set_lock(&printlock); \
+  printf(format, ##__VA_ARGS__); \
+  omp_unset_lock(&printlock); \
+}
+
 #define OMP_DBG_PRINTF(format, ...) { \
   omp_set_lock(&printlock); \
   DBG_PRINTF(format, ##__VA_ARGS__); \

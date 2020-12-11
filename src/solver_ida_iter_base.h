@@ -7,6 +7,28 @@
 
 #include "solver_ida_base.h"
 
+#ifdef PRINT_PATH
+#define PPATH(p, d) { \
+  for (int i=0; i<d; i++) { \
+    printf("%s ", Solver::to_string(p[i].op - 1)); \
+  } \
+  printf("\n"); \
+}
+#else
+#define PPATH(p, d)
+#endif
+
+#ifdef PRINT_PATH
+#define PWPATH(p, pd) { \
+  for (int i=0; i<pd; i++) { \
+    printf("(_, %d, %d, %d, %s) ", p[i]->g, p[i]->d, p[i]->min, Solver::to_string(p[i]->op - 1)); \
+  } \
+  printf("\n"); \
+}
+#else
+#define PWPATH(p, d)
+#endif
+
 // definition of a problem to solve
 struct node_iter {
   cube_t cube;

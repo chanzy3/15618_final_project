@@ -21,8 +21,8 @@ private:
 
   bool ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
-  int search_iter_omp(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound);
-  int search_iter_omp_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound);
+  void search_iter_omp(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound);
+  int search_iter_omp_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth);
 };
 
 #endif //INC_15618_FINAL_PROJECT_SOLVER_IDA_ITER_OMP_H

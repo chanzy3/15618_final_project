@@ -76,8 +76,6 @@ bool SolverIdaRecOmp::ida_solve_omp(cube_t *cube, int solution[MAX_DEPTH], int *
   return false;
 }
 
-bool found = false;
-
 void SolverIdaRecOmp::search_omp_para(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, uint8_t g, uint8_t bound) {
   node_t *node = path[(*d) - 1];
   uint8_t f = g + h(corner_db, node, (*d) - 1);
