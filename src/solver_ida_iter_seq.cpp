@@ -89,7 +89,7 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
   int path_d = 1; // start from index 1
 
   if (test_converge(&(root->cube))) {
-    return FOUND;
+    return path_d;
   }
 
   // TODO(tianez): correct cond?
