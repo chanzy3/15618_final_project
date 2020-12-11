@@ -293,16 +293,7 @@ cube_t *cube_new(bool init) {
   }
 
   if (init) {
-    fill(cube->f, CW);
-    fill(cube->b, CY);
-    fill(cube->l, CB);
-    fill(cube->r, CG);
-    fill(cube->u, CR);
-    fill(cube->d, CO);
-
-    for (int i=0; i<8; i++) {
-      cube->corner_orientation[i] = 0;
-    }
+    cube_init(cube);
   }
 
   return cube;
@@ -312,6 +303,19 @@ cube_t *cube_cpy(cube_t *cube) {
   cube_t *c = cube_new(false);
   memcpy(c, cube, sizeof(cube_t));
   return c;
+}
+
+void cube_init(cube_t *cube) {
+  fill(cube->f, CW);
+  fill(cube->b, CY);
+  fill(cube->l, CB);
+  fill(cube->r, CG);
+  fill(cube->u, CR);
+  fill(cube->d, CO);
+
+  for (int i=0; i<8; i++) {
+    cube->corner_orientation[i] = 0;
+  }
 }
 
 void bin_color(COLOR color, int count[6]) {

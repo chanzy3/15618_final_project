@@ -21,7 +21,7 @@ private:
 
   bool ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
-  int search_iter_seq(paracube::CornerPatternDatabase *corner_db, node_iter_t *path[MAX_DEPTH], int bound);
+  int search_iter_seq(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound);
 };
 
 #endif //INC_15618_FINAL_PROJECT_SOLVER_IDA_SEQ_ITER_H

@@ -9,11 +9,17 @@
 
 // definition of a problem to solve
 struct node_iter {
-  cube_t* cube;
+  cube_t cube;
+  /*
   int op; // next op
   int g;
   int d;
   int min; // current level min
+   */
+  uint8_t op; // next op
+  uint8_t g;
+  uint8_t d;
+  uint8_t min; // current level min
 };
 
 typedef node_iter node_iter_t;
@@ -29,6 +35,10 @@ protected:
   node_iter_t *node_iter_new_from_cube(cube_t* cube);
   node_iter_t *node_iter_cpy(node_iter_t *node);
   void node_iter_destroy(node_iter_t *node);
+
+  void node_iter_init(node_iter_t *node);
+  void node_iter_init_from_cube(node_iter_t*node, cube_t *cube);
+  void node_iter_cpy(node_iter_t *dst, node_iter_t *src);
 
   uint8_t h(paracube::CornerPatternDatabase *corner_db, node_iter_t *node);
   uint8_t cost(node_iter_t *n1, node_iter_t *n2);

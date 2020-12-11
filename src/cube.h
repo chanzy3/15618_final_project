@@ -72,6 +72,7 @@ typedef Cube cube_t;
 
 cube_t *cube_new(bool init);
 cube_t *cube_cpy(cube_t *cube);
+void cube_init(cube_t *cube);
 
 void F1(cube_t *c);
 void B1(cube_t *c);

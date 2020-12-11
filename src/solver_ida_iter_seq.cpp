@@ -9,7 +9,7 @@
 #ifdef PRINT_PATH
 #define PPATH(p, d) { \
   for (int i=0; i<d; i++) { \
-    printf("%s ", Solver::to_string(p[i]->op - 1)); \
+    printf("%s ", Solver::to_string(p[i].op - 1)); \
   } \
   printf("\n"); \
 }
@@ -37,12 +37,11 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
   // redefine path into a list of ints (ops) and save only 1 cube:
   // likely not needed since IDA is memory constrained
 
-  node_iter_t *root = node_iter_new_from_cube(cube);
-
-  node_iter_t *path[MAX_DEPTH];
+  node_iter_t path[MAX_DEPTH];
+  node_iter_t *root = &(path[0]);
   int bound;
 
-  path[0] = root;
+  node_iter_init_from_cube(&path[0], cube);
   bound = h(&this->corner_db, root);
   DBG_PRINTF("initial bound %d\n", bound);
 
@@ -60,7 +59,7 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
       *num_steps = solution_length;
       int s;
       for (s = 0; s < solution_length; s++) {
-        solution[s] = (path[s]->op) - 1;
+        solution[s] = (path[s].op) - 1;
       }
 
       return true;
@@ -79,20 +78,20 @@ bool SolverIdaIterSeq::ida_solve_iter_seq(cube_t *cube, int solution[MAX_DEPTH],
   return false;
 }
 
-int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db, node_iter_t *path[MAX_DEPTH], int bound) {
-  node_iter_t *root = path[0];
+int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound) {
+  node_iter_t *root = &(path[0]);
   int path_d = 1; // start from index 1
 
-  if (test_converge(root->cube)) {
+  if (test_converge(&(root->cube))) {
     return FOUND;
   }
 
   // TODO(tianez): correct cond?
   while (1) {
-    node_iter_t *n_curr = path[path_d - 1]; // curr node
+    node_iter_t *n_curr = &(path[path_d - 1]); // curr node
 
     PPATH(path, path_d);
-    PWPATH(path, path_d);
+    // PWPATH(path, path_d);
 
     if (n_curr->op >= TRANSITION_COUNT) {
       // finished all ops
@@ -101,25 +100,26 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
         // TODO(tianez):
         return -1; // don't free root
       } else {
-        node_iter_t *n_prev = path[path_d - 2];
+        node_iter_t *n_prev = n_curr - 1;
 
         n_prev->min = MIN(n_prev->min, n_curr->min);
 
-        node_iter_destroy(n_curr); // stack.pop
-        path[path_d - 1] = NULL;
+        // node_iter_destroy(n_curr); // stack.pop
+        // path[path_d - 1] = NULL;
         path_d--;
 
         continue; // resume work on previous problem, current problem complete
       }
     } else {
-      node_iter_t *n_next = node_iter_cpy(n_curr);
+      node_iter_t *n_next = n_curr + 1;
+      node_iter_cpy(n_next, n_curr);
 
       // generate next problem:
       // input: cube, g, d
       // problem internal state: min, op (iterate from 0 - 17)
 
       // cube
-      transition[n_curr->op](n_next->cube);
+      transition[n_curr->op](&(n_next->cube));
       (n_curr->op)++; // go to next op
       // g
       n_next->g += cost(n_next, n_curr);
@@ -136,8 +136,8 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
       // 3. f <= bound:   keep, next iteration will work on new problem
       int f = n_next->g + h(corner_db, n_next);
 
-      if (test_converge(n_next->cube)) {
-        node_iter_destroy(n_next);
+      if (test_converge(&(n_next->cube))) {
+        // node_iter_destroy(n_next);
 
         n_curr->min = FOUND;
         return path_d; // return found (solution_length)
@@ -145,9 +145,9 @@ int SolverIdaIterSeq::search_iter_seq(paracube::CornerPatternDatabase *corner_db
 
       if (f > bound) { // discard
         n_curr->min = MIN(n_curr->min, f);
-        node_iter_destroy(n_next);
+        // node_iter_destroy(n_next);
       } else {
-        path[path_d] = n_next; // stack.push
+        // path[path_d] = n_next; // stack.push
         path_d++;
       }
     }
