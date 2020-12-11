@@ -8,6 +8,8 @@
 
 #define PRUNE
 
+#define DEPTH_LIMIT 2
+
 bool SolverIdaIterOmp::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_iter_omp(cube, solution, num_steps);
 }
@@ -35,8 +37,8 @@ bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH],
     root->op = 0;
     root->min = INFTY;
 
-#pragma omp atomic write
-    curr_iter_mean = INFTY;
+#pragma omp atomic // write
+    curr_iter_mean += INFTY - curr_iter_mean;
 
     int solution_length = -1;
     /*
@@ -62,7 +64,7 @@ bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH],
     }
 
     int t;
-#pragma omp atomic read
+// #pragma omp atomic read
     t = curr_iter_mean;
 
     if (t == INFTY) {
@@ -82,7 +84,7 @@ bool found = false; // atomic update
 void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound) {
   OMP_PRINTF("bound: %d\n", bound);
 
-  int task_creation_depth_limit = 2; // 1 + 1 (1 loc taken by initial state)
+  int task_creation_depth_limit = DEPTH_LIMIT + 1; // (1 loc taken by initial state)
 
   // does not need to be atomic, locked access
   bool task_creation_completed = false;
@@ -102,14 +104,14 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
       omp_set_lock(&task_creation_lock);
 
       int found_c, task_creation_completed_c;
-#pragma omp atomic read
+// #pragma omp atomic read
       found_c = found;
       if (found_c) {
         omp_unset_lock(&task_creation_lock);
         goto serial_task_creation_end; // found
       }
 
-#pragma omp atomic read
+// #pragma omp atomic read
       task_creation_completed_c = task_creation_completed;
       if (task_creation_completed_c) {
         omp_unset_lock(&task_creation_lock);
@@ -179,8 +181,8 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
             // node_iter_destroy(n_next);
 
             // TODO(tianez): update and think
-#pragma omp atomic write
-            curr_iter_mean = FOUND;
+#pragma omp atomic // write
+            curr_iter_mean -= curr_iter_mean; // TODO(tianez): hack of FOUND;
 
             *solution_length = path_d + 1; // TODO(tianez): correct?
 
@@ -192,16 +194,20 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
             n_curr->min = std::min((int) n_curr->min, f);
             // node_iter_destroy(n_next);
           } else {
-            size_t siz = MAX_DEPTH * sizeof(node_iter_t);
-            local_path = (node_iter_t *) malloc(siz);
-            memcpy(local_path, path, siz);
 
-            // path[path_d] = n_next; // stack.push
-            // path_d++;
+            if (path_d + 1 < task_creation_depth_limit) {
+              // path[path_d] = n_next; // stack.push
+              path_d++;
+            } else {
+              size_t siz = MAX_DEPTH * sizeof(node_iter_t);
+              local_path = (node_iter_t *) malloc(siz);
+              memcpy(local_path, path, siz);
 
-            starting_depth = path_d + 1;
 
-            break;
+              starting_depth = path_d + 1;
+
+              break;
+            }
           }
         }
       }
@@ -212,13 +218,15 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
         int local_solution_length = search_iter_omp_helper(corner_db, local_path, bound, starting_depth);
 
         // TODO(tianez): update global and sync
-#pragma omp atomic write
-        curr_iter_mean = std::min(curr_iter_mean, (int) local_path[starting_depth - 1].min);
+        if (curr_iter_mean > (int) local_path[starting_depth - 1].min) {
+#pragma omp atomic // write
+          curr_iter_mean -= curr_iter_mean - ((int) local_path[starting_depth - 1].min);
+        }
 
 
         if (local_solution_length > 0) {
-#pragma omp atomic write
-          found = true;
+#pragma omp atomic // write
+          found |= 1; // TODO(tianez): hack true;
 
           omp_set_lock(&task_creation_lock);
 
@@ -276,7 +284,7 @@ int SolverIdaIterOmp::search_iter_omp_helper(paracube::CornerPatternDatabase *co
     }
 #endif
 
-    PPATH(path, path_d);
+    // PPATH(path, path_d);
     // PWPATH(path, path_d);
 
     if (n_curr->op >= TRANSITION_COUNT) {
