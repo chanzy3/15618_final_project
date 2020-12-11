@@ -10,12 +10,6 @@
 #include "cube.h"
 #include "debug.h"
 
-enum method {
-  BFS = 0,
-  IDA_SEQ = 1,
-  IDA_OMP = 2
-};
-
 #define MAX_DEPTH 26 // TODO(tianez):
 
 class Solver {
