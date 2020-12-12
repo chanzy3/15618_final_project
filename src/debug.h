@@ -7,7 +7,7 @@
 
 // #define DEBUG
 #define VALID_CHECK
-
+#define WORKSTEAL
 #ifdef DEBUG
 #define DBG_PRINTF(format, ...) printf(format, ##__VA_ARGS__);
 #else

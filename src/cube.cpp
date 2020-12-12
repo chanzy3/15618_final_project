@@ -525,6 +525,37 @@ char ts(int c) {
   return '?';
 }
 
+// Define this
+Cube::Cube(COLOR *arr) 
+{
+  // f b l r u d
+  for (int i = 0; i < 3; i++){
+    for (int j = 0; j < 3; j++) {
+      f[i][j] = arr[3 * i + j];
+      b[i][j] = arr[9 + 3 * i + j];
+      l[i][j] = arr[18 + 3 * i + j];
+      r[i][j] = arr[27 + 3 * i + j];
+      u[i][j] = arr[36 + 3 * i + j];
+      d[i][j] = arr[45 + 3 * i + j];
+    }
+  }
+}
+
+uint8_t* Cube::convertCubeToArr() {
+  uint8_t arr[54];
+  for (int i = 0; i < 3; i++){
+    for (int j = 0; j < 3; j++) {
+      arr[3 * i + j] = f[i][j];
+      arr[9 + 3 * i + j] = b[i][j];
+      arr[18 + 3 * i + j] = l[i][j];
+      arr[27 + 3 * i + j] = r[i][j];
+      arr[36 + 3 * i + j] = u[i][j];
+      arr[45 + 3 * i + j] = d[i][j];
+    }
+  }
+  return arr;
+}
+
 uint8_t Cube::getCornerIndex(CORNER ind) const {
   COLOR a, b, c;
   getCorner(ind, a, b, c);

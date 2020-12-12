@@ -16,7 +16,8 @@ enum method {
   BFS = 0,
   IDA = 1,
   IDA_MPI = 2,
-  IDA_MPI2 = 3
+  IDA_MPI2 = 3,
+  IDA_MPI3 = 4
 };
 
 #define UPDATE_TAG 1
@@ -25,6 +26,12 @@ enum method {
 #define START_TAG 4
 #define BROADCAST_TAG 5
 #define FINISH_TAG 6
+#define REQUEST_WORKLOAD 7
+#define SIZE_TAG 8
+#define IF_SEND_TAG 9
+#define SEND_WORK 10
+#define TERMINATION_TAG 11
+#define IF_STEAL_TAG 12
 
 class Solver {
 public:
@@ -39,6 +46,9 @@ public:
         ida_init(numProcessors);
         break;
       case IDA_MPI2:
+        ida_init(numProcessors);
+        break;
+      case IDA_MPI3:
         ida_init(numProcessors);
         break;
       default:
@@ -74,6 +84,7 @@ private:
   bool ida_solve_mpi(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
   void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db);
   bool ida_solve_mpi_v2(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
+  bool ida_solve_mpi_v3(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
   // bool ida_para_helper(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, bool &t, node_t **path, CubeSet &cubes);
 
   paracube::CornerPatternDatabase corner_db;

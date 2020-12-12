@@ -42,10 +42,13 @@ struct Cube {
   COLOR u[DIM][DIM];
   COLOR d[DIM][DIM];
 
+  Cube(COLOR *arr); // construct cube from an 54 array of uint_8;
   uint8_t corner_orientation[8]; // 8 corners
 
   uint8_t getCornerIndex(CORNER ind) const;
   uint8_t getCornerOrientation(CORNER ind) const;
+  uint8_t *convertCubeToArr();
+
 
   inline void updateCornerOrientationX(CORNER ind);
   inline void updateCornerOrientationZ(CORNER ind);
