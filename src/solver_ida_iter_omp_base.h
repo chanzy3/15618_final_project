@@ -9,6 +9,10 @@
 
 #include "solver_ida_iter_base.h"
 
+#define COUNT_TRANSITIONS
+
+#define PRUNE
+
 #define OMP_PRINTF(format, ...) { \
   omp_set_lock(&printlock); \
   printf(format, ##__VA_ARGS__); \

@@ -4,24 +4,26 @@
 
 #include <algorithm>
 
-#include "solver_ida_iter_omp.h"
+#include "solver_ida_iter_omp_main_worker.h"
 
 #ifdef COUNT_TRANSITIONS
 extern int ida_iter_omp_num_transitions;
 extern int ida_iter_omp_num_transitions_top_level;
 #endif
 
+#define PRUNE
+
 #define DEPTH_LIMIT_MIN 2
 #define TASK_BOUND_TARGET 9
 
-bool SolverIdaIterOmp::solve(cube_t *cube, int *solution, int *num_steps) {
-  return ida_solve_iter_omp(cube, solution, num_steps);
+bool SolverIdaIterOmpMainWorker::solve(cube_t *cube, int *solution, int *num_steps) {
+  return ida_solve_iter_omp_main_worker(cube, solution, num_steps);
 }
 
 // TODO(tianez): atomic
 extern int curr_iter_mean;
 
-bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
+bool SolverIdaIterOmpMainWorker::ida_solve_iter_omp_main_worker(cube_t *cube, int solution[MAX_DEPTH], int *num_steps) {
   // TODO(tianez): trade extra computation to save memory:
   // redefine path into a list of ints (ops) and save only 1 cube:
   // likely not needed since IDA is memory constrained
@@ -50,11 +52,11 @@ bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH],
     {
 #pragma omp single
       {
-        search_iter_omp(&this->corner_db, path, &solution_length, bound);
+        search_iter_omp_main_worker(&this->corner_db, path, &solution_length, bound);
       }
     }
     */
-    search_iter_omp(&this->corner_db, path, &solution_length, bound);
+    search_iter_omp_main_worker(&this->corner_db, path, &solution_length, bound);
 
     DBG_PRINTF("t: %d\n\n", t);
     if (solution_length >= 0) {
@@ -89,7 +91,7 @@ bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH],
 // TODO(tianez): atomic
 extern bool found;
 
-void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound) {
+void SolverIdaIterOmpMainWorker::search_iter_omp_main_worker(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound) {
   OMP_PRINTF("bound: %d\n", bound);
 
   int task_creation_depth_limit = DEPTH_LIMIT_MIN + 1; // (1 loc taken by initial state)
@@ -239,7 +241,7 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
       omp_unset_lock(&task_creation_lock);
 
       if (starting_depth != -1) {
-        int local_solution_length = search_iter_omp_helper(corner_db, local_path, bound, starting_depth);
+        int local_solution_length = search_iter_omp_main_worker_helper(corner_db, local_path, bound, starting_depth);
 
         // TODO(tianez): update global and sync
         if (curr_iter_mean > (int) local_path[starting_depth - 1].min) {
@@ -287,7 +289,7 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
   omp_destroy_lock(&task_creation_lock);
 }
 
-int SolverIdaIterOmp::search_iter_omp_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth) {
+int SolverIdaIterOmpMainWorker::search_iter_omp_main_worker_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth) {
   node_iter_t *root = &(path[starting_depth - 1]);
   int path_d = starting_depth;
 
