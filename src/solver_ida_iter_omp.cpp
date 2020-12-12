@@ -6,9 +6,17 @@
 
 #include "solver_ida_iter_omp.h"
 
+// #define COUNT_TRANSITIONS
+
+#ifdef COUNT_TRANSITIONS
+int ida_iter_omp_num_transitions = 0;
+int ida_iter_omp_num_transitions_top_level = 0;
+#endif
+
 #define PRUNE
 
-#define DEPTH_LIMIT 2
+#define DEPTH_LIMIT_MIN 2
+#define TASK_BOUND_TARGET 9
 
 bool SolverIdaIterOmp::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_iter_omp(cube, solution, num_steps);
@@ -60,6 +68,10 @@ bool SolverIdaIterOmp::ida_solve_iter_omp(cube_t *cube, int solution[MAX_DEPTH],
         solution[s] = (path[s].op) - 1;
       }
 
+#ifdef COUNT_TRANSITIONS
+      printf("top: %d, task: %d\n", ida_iter_omp_num_transitions_top_level, ida_iter_omp_num_transitions);
+#endif
+
       return true;
     }
 
@@ -84,7 +96,15 @@ bool found = false; // atomic update
 void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound) {
   OMP_PRINTF("bound: %d\n", bound);
 
-  int task_creation_depth_limit = DEPTH_LIMIT + 1; // (1 loc taken by initial state)
+  int task_creation_depth_limit = DEPTH_LIMIT_MIN + 1; // (1 loc taken by initial state)
+  if (bound > TASK_BOUND_TARGET + DEPTH_LIMIT_MIN) {
+    task_creation_depth_limit = bound - TASK_BOUND_TARGET + 1;
+  }
+
+  OMP_PRINTF("task_creation_depth_limit: %d\n", task_creation_depth_limit);
+#ifdef COUNT_TRANSITIONS
+  printf("top: %d, task: %d\n", ida_iter_omp_num_transitions_top_level, ida_iter_omp_num_transitions);
+#endif
 
   // does not need to be atomic, locked access
   bool task_creation_completed = false;
@@ -126,9 +146,12 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
 
 #ifdef PRUNE
         if (n_prev != NULL) {
+          OMP_DBG_PRINTF("for %s, ", to_string(n_prev->op - 1));
           while (can_prune(n_prev->op - 1, n_curr->op)) {
+            OMP_DBG_PRINTF("pruned %s, ", to_string(n_curr->op));
             n_curr->op++; // skip an op
           }
+          OMP_DBG_PRINTF("continuing with %s\n", to_string(n_curr->op));
         }
 #endif
 
@@ -158,6 +181,11 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
           // generate next problem:
           // input: cube, g, d
           // problem internal state: min, op (iterate from 0 - 17)
+
+#ifdef COUNT_TRANSITIONS
+#pragma omp atomic
+          ida_iter_omp_num_transitions_top_level++;
+#endif
 
           // cube
           transition[n_curr->op](&(n_next->cube));
@@ -288,6 +316,10 @@ int SolverIdaIterOmp::search_iter_omp_helper(paracube::CornerPatternDatabase *co
     // PWPATH(path, path_d);
 
     if (n_curr->op >= TRANSITION_COUNT) {
+      // TODO(tianez): good place?
+      if (found) {
+        return -1;
+      }
       // finished all ops
 
       if (path_d == starting_depth) {
@@ -309,6 +341,12 @@ int SolverIdaIterOmp::search_iter_omp_helper(paracube::CornerPatternDatabase *co
       // generate next problem:
       // input: cube, g, d
       // problem internal state: min, op (iterate from 0 - 17)
+
+
+#ifdef COUNT_TRANSITIONS
+#pragma omp atomic
+        ida_iter_omp_num_transitions++;
+#endif
 
       // cube
       transition[n_curr->op](&(n_next->cube));
