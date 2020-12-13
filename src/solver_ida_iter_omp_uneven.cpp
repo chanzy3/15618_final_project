@@ -111,8 +111,24 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
 
   int path_d = 1;
 
+  size_t siz = MAX_DEPTH * sizeof(node_iter_t);
+
 #pragma omp parallel
   {
+    int thread_id = omp_get_thread_num();
+    worker_states[thread_id] = (WorkerState *) malloc(sizeof(WorkerState));
+    worker_states[thread_id]->state = Waiting;
+    omp_init_lock(&(worker_states[thread_id]->lock));
+
+    // to mark for other threads to see
+    node_iter_t *local_path = worker_states[thread_id]->local_path;
+    int *starting_depth = &worker_states[thread_id]->starting_depth;
+
+    // where to work on sub problem
+    node_iter_t *private_local_path = (node_iter_t *) malloc(siz);
+    int psd;
+    int *private_starting_depth = &psd;
+
     /*
 #pragma omp single
     {
@@ -120,8 +136,7 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
     }
      */
     while (1) {
-      node_iter_t *local_path = NULL;
-      int starting_depth = -1;
+      *starting_depth = -1;
 
       omp_set_lock(&task_creation_lock);
 
@@ -227,11 +242,14 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
               path_d++;
             } else {
               size_t siz = MAX_DEPTH * sizeof(node_iter_t);
+              /*
               local_path = (node_iter_t *) malloc(siz);
+               */
+              local_path = worker_states[thread_id]->local_path;
               memcpy(local_path, path, siz);
 
 
-              starting_depth = path_d + 1;
+              *starting_depth = path_d + 1;
 
               break;
             }
@@ -241,16 +259,16 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
 
       omp_unset_lock(&task_creation_lock);
 
-      if (starting_depth != -1) {
+      if (*starting_depth != -1) {
         // double s = CycleTimer::currentSeconds();
-        int local_solution_length = search_iter_omp_uneven_helper(corner_db, local_path, bound, starting_depth);
+        int local_solution_length = search_iter_omp_uneven_helper(corner_db, local_path, starting_depth, private_local_path, private_starting_depth, bound);
         // double e = CycleTimer::currentSeconds();
         // OMP_PRINTF("r: %f ms\n", (e - s) * 1000.0f);
 
         // TODO(tianez): update global and sync
-        if (curr_iter_mean > (int) local_path[starting_depth - 1].min) {
+        if (curr_iter_mean > (int) local_path[*starting_depth - 1].min) {
 #pragma omp atomic // write
-          curr_iter_mean -= curr_iter_mean - ((int) local_path[starting_depth - 1].min);
+          curr_iter_mean -= curr_iter_mean - ((int) local_path[*starting_depth - 1].min);
         }
 
 
@@ -265,21 +283,18 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
 
           omp_unset_lock(&task_creation_lock);
 
-          free(local_path);
           goto serial_task_creation_end;
         }
 
         // TODO(tianez): solution length
-
-        free(local_path);
       }
-
-      local_path = NULL;
-      starting_depth = -1;
     }
 
     serial_task_creation_end:
       int x = 0; // TODO(tianez): better way?
+
+    // task stealing start
+    // TODO: Think about task stealing state storage
 
 #pragma omp barrier
   }
@@ -293,7 +308,12 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
   omp_destroy_lock(&task_creation_lock);
 }
 
-int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth) {
+int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t *local_path, int *starting_depth, node_iter_t *private_local_path, int *private_starting_depth, int bound) {
+  return search_iter_omp_uneven_helper_private(corner_db, local_path, *starting_depth, bound);
+  // return search_iter_omp_uneven_helper_private(corner_db, private_local_path, *private_starting_depth, bound);
+}
+
+int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper_private(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth) {
   node_iter_t *root = &(path[starting_depth - 1]);
   int path_d = starting_depth;
 
