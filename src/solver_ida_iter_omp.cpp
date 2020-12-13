@@ -125,17 +125,14 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
 
       omp_set_lock(&task_creation_lock);
 
-      int found_c, task_creation_completed_c;
 // #pragma omp atomic read
-      found_c = found;
-      if (found_c) {
+      if (found) {
         omp_unset_lock(&task_creation_lock);
         goto serial_task_creation_end; // found
       }
 
 // #pragma omp atomic read
-      task_creation_completed_c = task_creation_completed;
-      if (task_creation_completed_c) {
+      if (task_creation_completed) {
         omp_unset_lock(&task_creation_lock);
         goto serial_task_creation_end; // complete task creation
       }
