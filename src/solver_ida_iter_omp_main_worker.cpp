@@ -46,7 +46,7 @@ bool SolverIdaIterOmpMainWorker::ida_solve_iter_omp_main_worker(cube_t *cube, in
     {
 #pragma omp single
       {
-        OMP_PRINTF("num_threads %d\n", omp_get_num_threads());
+        // OMP_PRINTF("num_threads %d\n", omp_get_num_threads());
 
         search_iter_omp_main_worker(&this->corner_db, path, &solution_length, bound);
       }
@@ -86,14 +86,14 @@ bool SolverIdaIterOmpMainWorker::ida_solve_iter_omp_main_worker(cube_t *cube, in
 extern bool found;
 
 void SolverIdaIterOmpMainWorker::search_iter_omp_main_worker(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound) {
-  OMP_PRINTF("bound: %d\n", bound);
+  // OMP_PRINTF("bound: %d\n", bound);
 
   int task_creation_depth_limit = DEPTH_LIMIT_MIN + 1; // (1 loc taken by initial state)
   if (bound > TASK_BOUND_TARGET + DEPTH_LIMIT_MIN) {
     task_creation_depth_limit = bound - TASK_BOUND_TARGET + 1;
   }
 
-  OMP_PRINTF("task_creation_depth_limit: %d\n", task_creation_depth_limit);
+  // OMP_PRINTF("task_creation_depth_limit: %d\n", task_creation_depth_limit);
 #ifdef COUNT_TRANSITIONS
   printf("top: %d, task: %d\n", ida_iter_omp_num_transitions_top_level, ida_iter_omp_num_transitions);
 #endif

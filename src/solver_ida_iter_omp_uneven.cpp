@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // TODO(tianez): remove
-#include "cycleTimer.h"
+// #include "cycleTimer.h"
 
 #include "solver_ida_iter_omp_uneven.h"
 
