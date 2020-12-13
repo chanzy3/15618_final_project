@@ -4,15 +4,15 @@
 
 #include <algorithm>
 
+// TODO(tianez): remove
+// #include "cycleTimer.h"
+
 #include "solver_ida_iter_omp.h"
 
 #ifdef COUNT_TRANSITIONS
 extern int ida_iter_omp_num_transitions;
 extern int ida_iter_omp_num_transitions_top_level;
 #endif
-
-#define DEPTH_LIMIT_MIN 2
-#define TASK_BOUND_TARGET 9
 
 bool SolverIdaIterOmp::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_iter_omp(cube, solution, num_steps);
@@ -113,6 +113,12 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
 
 #pragma omp parallel
   {
+    /*
+#pragma omp single
+    {
+      OMP_PRINTF("num_threads %d\n", omp_get_num_threads());
+    }
+     */
     while (1) {
       node_iter_t *local_path = NULL;
       int starting_depth = -1;
@@ -239,7 +245,10 @@ void SolverIdaIterOmp::search_iter_omp(paracube::CornerPatternDatabase *corner_d
       omp_unset_lock(&task_creation_lock);
 
       if (starting_depth != -1) {
+        // double s = CycleTimer::currentSeconds();
         int local_solution_length = search_iter_omp_helper(corner_db, local_path, bound, starting_depth);
+        // double e = CycleTimer::currentSeconds();
+        // OMP_PRINTF("r: %f ms\n", (e - s) * 1000.0f);
 
         // TODO(tianez): update global and sync
         if (curr_iter_mean > (int) local_path[starting_depth - 1].min) {
