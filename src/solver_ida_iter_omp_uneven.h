@@ -32,9 +32,24 @@ public:
 
 private:
 
+  enum WorkingState {
+    Waiting = 0,
+    Working = 1,
+    Finished = 2
+  };
+  struct WorkerState {
+    node_iter_t local_path[MAX_DEPTH];
+    int starting_depth;
+    int local_path_d;
+    enum WorkingState state;
+    omp_lock_t lock;
+  };
+
   bool ida_solve_iter_omp_uneven(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
 
   void search_iter_omp_uneven(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound);
+  // returns target found
+  bool steal_work(paracube::CornerPatternDatabase *corner_db, WorkerState *target, node_iter_t private_local_path[MAX_DEPTH], int *private_starting_depth, int bound);
   int search_iter_omp_uneven_helper(paracube::CornerPatternDatabase *corner_db,
                                     node_iter_t path[MAX_DEPTH], int *solution_length,
                                     node_iter_t *local_path, int *starting_depth, int *local_path_d,
@@ -42,18 +57,6 @@ private:
                                     node_iter_t *private_local_path, int *private_starting_depth, int bound);
   int search_iter_omp_uneven_helper_private(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth);
 
-  enum WorkingState {
-    Waiting = 0,
-    Working = 1,
-    Finished = 2
-  };
-  struct WorkerState {
-    enum WorkingState state;
-    int starting_depth;
-    node_iter_t local_path[MAX_DEPTH];
-    int local_path_d;
-    omp_lock_t lock;
-  };
   int num_threads;
   WorkerState **worker_states;
 

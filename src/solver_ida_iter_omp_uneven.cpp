@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // TODO(tianez): remove
-// #include "cycleTimer.h"
+#include "cycleTimer.h"
 
 #include "solver_ida_iter_omp_uneven.h"
 
@@ -13,6 +13,8 @@
 extern int ida_iter_omp_num_transitions;
 extern int ida_iter_omp_num_transitions_top_level;
 #endif
+
+#define PRIVATE_SUB_PROBLEM_DEPTH 3
 
 bool SolverIdaIterOmpUneven::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_iter_omp_uneven(cube, solution, num_steps);
@@ -90,14 +92,14 @@ bool SolverIdaIterOmpUneven::ida_solve_iter_omp_uneven(cube_t *cube, int solutio
 extern bool found;
 
 void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int *solution_length, int bound) {
-  OMP_PRINTF("bound: %d\n", bound);
+  // OMP_PRINTF("bound: %d\n", bound);
 
   int task_creation_depth_limit = DEPTH_LIMIT_MIN + 1; // (1 loc taken by initial state)
   if (bound > TASK_BOUND_TARGET + DEPTH_LIMIT_MIN) {
     task_creation_depth_limit = bound - TASK_BOUND_TARGET + 1;
   }
 
-  OMP_PRINTF("task_creation_depth_limit: %d\n", task_creation_depth_limit);
+  // OMP_PRINTF("task_creation_depth_limit: %d\n", task_creation_depth_limit);
 #ifdef COUNT_TRANSITIONS
   printf("top: %d, task: %d\n", ida_iter_omp_num_transitions_top_level, ida_iter_omp_num_transitions);
 #endif
@@ -118,6 +120,9 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
     int thread_id = omp_get_thread_num();
     worker_states[thread_id] = (WorkerState *) malloc(sizeof(WorkerState));
     worker_states[thread_id]->state = Waiting;
+
+#pragma omp barrier
+
     omp_init_lock(&(worker_states[thread_id]->lock));
 
     // to mark for other threads to see
@@ -264,11 +269,21 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
 
       if (*starting_depth != -1) {
         // double s = CycleTimer::currentSeconds();
+
+        omp_set_lock(&(worker_states[thread_id]->lock));
+        worker_states[thread_id]->state = Working;
+        omp_unset_lock(&(worker_states[thread_id]->lock));
+
         int local_solution_length = search_iter_omp_uneven_helper(corner_db,
                                                                   path, solution_length,
                                                                   local_path, starting_depth, local_path_d,
                                                                   &(worker_states[thread_id]->lock),
                                                                   private_local_path, private_starting_depth, bound);
+
+        omp_set_lock(&(worker_states[thread_id]->lock));
+        worker_states[thread_id]->state = Waiting;
+        omp_unset_lock(&(worker_states[thread_id]->lock));
+
         // double e = CycleTimer::currentSeconds();
         // OMP_PRINTF("r: %f ms\n", (e - s) * 1000.0f);
 
@@ -298,10 +313,91 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
     }
 
     serial_task_creation_end:
-      int x = 0; // TODO(tianez): better way?
+
+    omp_set_lock(&(worker_states[thread_id]->lock));
+    worker_states[thread_id]->state = Finished;
+    omp_unset_lock(&(worker_states[thread_id]->lock));
 
     // task stealing start
     // TODO: Think about task stealing state storage
+
+    bool stealing = true;
+    while (stealing) {
+      stealing = false;
+
+      *private_starting_depth = -1;
+
+      for (int target_id = 0; target_id < omp_get_num_threads(); target_id++) {
+        WorkerState *target = worker_states[target_id];
+        if (target->state == Working) {
+          stealing = true;
+
+          // TODO(tianez): work on
+          if (found) {
+            goto steal_task_end;
+          }
+          omp_set_lock(&(target->lock));
+          if (found) {
+            omp_unset_lock(&(target->lock));
+            goto steal_task_end;
+          }
+          if (target->state != Working) {
+            omp_unset_lock(&(target->lock));
+            continue;
+          }
+
+          if (steal_work(corner_db, target, private_local_path, private_starting_depth, bound)) {
+#pragma omp atomic
+            found |= 1;
+            omp_unset_lock(&(target->lock));
+
+            {
+              omp_set_lock(&solution_lock);
+
+              memcpy(path, target->local_path, MAX_DEPTH * sizeof(node_iter_t));
+              *solution_length = target->local_path_d;
+
+              omp_unset_lock(&solution_lock);
+            }
+
+            goto steal_task_end;
+          }
+
+          omp_unset_lock(&(target->lock));
+
+          if (*private_starting_depth != -1) {
+            // double s = CycleTimer::currentSeconds();
+            int private_local_solution_length = search_iter_omp_uneven_helper_private(corner_db, private_local_path, bound, *private_starting_depth);
+            // double e = CycleTimer::currentSeconds();
+            // OMP_PRINTF("r: %f ms\n", (e - s) * 1000.0f);
+
+            // TODO(tianez): update global and sync
+            if (curr_iter_mean > (int) private_local_path[*private_starting_depth - 1].min) {
+#pragma omp atomic // write
+              curr_iter_mean -= curr_iter_mean - ((int) private_local_path[*private_starting_depth - 1].min);
+            }
+
+
+            if (private_local_solution_length > 0) {
+#pragma omp atomic // write
+              found |= 1; // TODO(tianez): hack true;
+
+              omp_set_lock(&solution_lock);
+
+              memcpy(path, private_local_path, MAX_DEPTH * sizeof(node_iter_t));
+              *solution_length = private_local_solution_length;
+
+              omp_unset_lock(&solution_lock);
+
+              goto steal_task_end;
+            }
+          }
+        }
+      }
+    }
+
+    steal_task_end:
+      int x = 0; // TODO(tianez): better way?
 
 #pragma omp barrier
   }
@@ -315,7 +411,106 @@ void SolverIdaIterOmpUneven::search_iter_omp_uneven(paracube::CornerPatternDatab
   omp_destroy_lock(&task_creation_lock);
 }
 
-#define PRIVATE_SUB_PROBLEM_DEPTH 3
+bool SolverIdaIterOmpUneven::steal_work(paracube::CornerPatternDatabase *corner_db, WorkerState *target, node_iter_t private_local_path[MAX_DEPTH], int *private_starting_depth, int bound) {
+  node_iter_t *local_path = target->local_path;
+  int *starting_depth = &target->starting_depth;
+  int *local_path_d = &target->local_path_d;
+
+  while (1) {
+    // OMP_PRINTF("t_%.2d stealwork, target %p, local_path_d %d\n", omp_get_thread_num(), target, *local_path_d);
+    node_iter_t *n_curr = &(local_path[*local_path_d - 1]); // curr node
+    node_iter_t *n_prev = *local_path_d == 1 ? NULL : n_curr - 1;
+
+#ifdef PRUNE
+    if (n_prev != NULL) {
+      while (can_prune(n_prev->op - 1, n_curr->op)) {
+        n_curr->op++; // skip an op
+      }
+    }
+#endif
+
+    // PPATH(path, path_d);
+    // PWPATH(path, path_d);
+
+    if (n_curr->op >= TRANSITION_COUNT) {
+      // TODO(tianez): good place?
+      if (found) {
+        return false;
+      }
+      // finished all ops
+
+      if (*local_path_d == *starting_depth) {
+        // TODO(tianez):
+        target->state = Finished;
+        return false;
+      } else {
+        n_prev->min = std::min(n_prev->min, n_curr->min);
+
+        // node_iter_destroy(n_curr); // stack.pop
+        // path[path_d - 1] = NULL;
+        (*local_path_d)--;
+
+        continue; // resume work on previous problem, current problem complete
+      }
+    } else {
+      node_iter_t *n_next = n_curr + 1;
+      node_iter_cpy(n_next, n_curr);
+
+      // generate next problem:
+      // input: cube, g, d
+      // problem internal state: min, op (iterate from 0 - 17)
+
+
+#ifdef COUNT_TRANSITIONS
+      #pragma omp atomic
+      ida_iter_omp_num_transitions++;
+#endif
+
+      // cube
+      transition[n_curr->op](&(n_next->cube));
+      (n_curr->op)++; // go to next op
+      // g
+      n_next->g += cost(n_next, n_curr);
+      // d
+      n_next->d++;
+      // min
+      n_next->min = INFTY; // TODO(tianez): need this? is this optimization?
+      // op
+      n_next->op = 0; // start from first op
+
+      // Keep next problem or not ? depending on f and convergence, choices:
+      // 1. convergence:  return found
+      // 2. f > bound:    discard, update current problem min
+      // 3. f <= bound:   keep, next iteration will work on new problem
+      int f = n_next->g + h(corner_db, n_next);
+
+      if (test_converge(&(n_next->cube))) {
+        // node_iter_destroy(n_next);
+
+        n_curr->min = FOUND;
+        return true; // return found (solution_length)
+      }
+
+      if (f > bound) { // discard
+        n_curr->min = std::min((int) n_curr->min, f);
+        // node_iter_destroy(n_next);
+      } else {
+        // path[path_d] = n_next; // stack.push
+
+        if (bound - *local_path_d > PRIVATE_SUB_PROBLEM_DEPTH) {
+          (*local_path_d)++;
+        } else {
+          // go to sub problem
+          memcpy(private_local_path, local_path, MAX_DEPTH * sizeof(node_iter_t));
+          *private_starting_depth = (*local_path_d) + 1;
+          break;
+        }
+      }
+    }
+  }
+
+  return false;
+}
 
 int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatternDatabase *corner_db,
                                                           node_iter_t path[MAX_DEPTH], int *solution_length,
@@ -351,13 +546,16 @@ int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatter
         // TODO(tianez): good place?
         if (found) {
           omp_unset_lock(local_lock);
+
           return -1;
         }
         // finished all ops
 
         if (*local_path_d == *starting_depth) {
           // TODO(tianez):
+          worker_states[omp_get_thread_num()]->state = Waiting;
           omp_unset_lock(local_lock);
+
           return -1; // don't free root
         } else {
           n_prev->min = std::min(n_prev->min, n_curr->min);
@@ -405,6 +603,7 @@ int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatter
 
           n_curr->min = FOUND;
           omp_unset_lock(local_lock);
+
           return *local_path_d; // return found (solution_length)
         }
 
@@ -413,7 +612,6 @@ int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatter
           // node_iter_destroy(n_next);
         } else {
           // path[path_d] = n_next; // stack.push
-          // OMP_PRINTF("t_%.2d: bound(%d) - *local_path_d(%d) > PSPD(%d)\n", omp_get_thread_num(), bound, *local_path_d, PRIVATE_SUB_PROBLEM_DEPTH);
 
           if (bound - *local_path_d > PRIVATE_SUB_PROBLEM_DEPTH) {
             (*local_path_d)++;
@@ -460,8 +658,6 @@ int SolverIdaIterOmpUneven::search_iter_omp_uneven_helper(paracube::CornerPatter
     }
   }
 
-  // return search_iter_omp_uneven_helper_private(corner_db, local_path, *starting_depth, bound);
-  // return search_iter_omp_uneven_helper_private(corner_db, private_local_path, *private_starting_depth, bound);
   return -1;
 }
 
