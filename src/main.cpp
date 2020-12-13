@@ -13,6 +13,7 @@
 #include "solver_ida_iter_seq.h"
 #include "solver_ida_iter_omp.h"
 #include "solver_ida_iter_omp_main_worker.h"
+#include "solver_ida_iter_omp_uneven.h"
 
 enum method {
   BFS = 0,
@@ -20,12 +21,13 @@ enum method {
   IDA_REC_OMP = 2,
   IDA_ITER_SEQ = 3,
   IDA_ITER_OMP = 4,
-  IDA_ITER_OMP_MAIN_WORKER = 5
+  IDA_ITER_OMP_MAIN_WORKER = 5,
+  IDA_ITER_OMP_UNEVEN = 6
 };
 
 void usage(const char* progname) {
   printf("Usage: %s [options] method \n", progname);
-  printf("Valid methods are: BFS, IDA_REC_SEQ, IDA_REC_OMP, IDA_ITER_SEQ, IDA_ITER_OMP, IDA_ITER_OMP_MAIN_WORKER\n");
+  printf("Valid methods are: BFS, IDA_REC_SEQ, IDA_REC_OMP, IDA_ITER_SEQ, IDA_ITER_OMP, IDA_ITER_OMP_MAIN_WORKER, IDA_ITER_OMP_UNEVEN\n");
   printf("Program Options:\n");
   printf("  -f  --file  <FILENAME>        Input file name\n");
   printf("  -t  --threads  <NUM_THREADS>  Number of OMP threads, only relevant for IDA_OMP method\n");
@@ -83,6 +85,8 @@ int main(int argc, char** argv) {
     method = IDA_ITER_OMP;
   } else if (strcmp(solverName, "IDA_ITER_OMP_MAIN_WORKER") == 0) {
     method = IDA_ITER_OMP_MAIN_WORKER;
+  } else if (strcmp(solverName, "IDA_ITER_OMP_UNEVEN") == 0) {
+    method = IDA_ITER_OMP_UNEVEN;
   } else {
     fprintf(stderr, "Unknown method name (%s)\n", solverName);
     usage(argv[0]);
@@ -146,6 +150,9 @@ int main(int argc, char** argv) {
       break;
     case IDA_ITER_OMP_MAIN_WORKER:
       SolverIdaIterOmpMainWorker(num_omp_threads).timedSolve(cube);
+      break;
+    case IDA_ITER_OMP_UNEVEN:
+      SolverIdaIterOmpUneven(num_omp_threads).timedSolve(cube);
       break;
   }
 }
