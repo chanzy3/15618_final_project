@@ -11,11 +11,6 @@ extern int ida_iter_omp_num_transitions;
 extern int ida_iter_omp_num_transitions_top_level;
 #endif
 
-#define PRUNE
-
-#define DEPTH_LIMIT_MIN 2
-#define TASK_BOUND_TARGET 9
-
 bool SolverIdaIterOmpMainWorker::solve(cube_t *cube, int *solution, int *num_steps) {
   return ida_solve_iter_omp_main_worker(cube, solution, num_steps);
 }
@@ -47,16 +42,15 @@ bool SolverIdaIterOmpMainWorker::ida_solve_iter_omp_main_worker(cube_t *cube, in
     curr_iter_mean += INFTY - curr_iter_mean;
 
     int solution_length = -1;
-    /*
 #pragma omp parallel
     {
 #pragma omp single
       {
+        OMP_PRINTF("num_threads %d\n", omp_get_num_threads());
+
         search_iter_omp_main_worker(&this->corner_db, path, &solution_length, bound);
       }
     }
-    */
-    search_iter_omp_main_worker(&this->corner_db, path, &solution_length, bound);
 
     DBG_PRINTF("t: %d\n\n", t);
     if (solution_length >= 0) {
@@ -108,185 +102,136 @@ void SolverIdaIterOmpMainWorker::search_iter_omp_main_worker(paracube::CornerPat
   bool task_creation_completed = false;
 
   // TODO(tianez): init once;
-  omp_lock_t task_creation_lock;
-  omp_init_lock(&task_creation_lock);
-
   int path_d = 1;
 
-#pragma omp parallel
-  {
-    while (1) {
-      node_iter_t *local_path = NULL;
-      int starting_depth = -1;
+  attempt_task_creation:
+  while (!found && !task_creation_completed) {
+    node_iter_t *local_path = NULL;
+    int starting_depth = -1;
 
-      omp_set_lock(&task_creation_lock);
+    node_iter_t *n_curr = &(path[path_d - 1]); // curr node
+    node_iter_t *n_prev = path_d == 1 ? NULL : n_curr - 1;
 
-      int found_c, task_creation_completed_c;
-// #pragma omp atomic read
-      found_c = found;
-      if (found_c) {
-        omp_unset_lock(&task_creation_lock);
-        goto serial_task_creation_end; // found
-      }
-
-// #pragma omp atomic read
-      task_creation_completed_c = task_creation_completed;
-      if (task_creation_completed_c) {
-        omp_unset_lock(&task_creation_lock);
-        goto serial_task_creation_end; // complete task creation
-      }
-
-      while (path_d < task_creation_depth_limit) {
-        node_iter_t *n_curr = &(path[path_d - 1]); // curr node
-        node_iter_t *n_prev = path_d == 1 ? NULL : n_curr - 1;
-
-        PPATH(path, path_d);
+    PPATH(path, path_d);
 
 #ifdef PRUNE
-        if (n_prev != NULL) {
-          OMP_DBG_PRINTF("for %s, ", to_string(n_prev->op - 1));
-          while (can_prune(n_prev->op - 1, n_curr->op)) {
-            OMP_DBG_PRINTF("pruned %s, ", to_string(n_curr->op));
-            n_curr->op++; // skip an op
-          }
-          OMP_DBG_PRINTF("continuing with %s\n", to_string(n_curr->op));
-        }
+    if (n_prev != NULL) {
+      OMP_DBG_PRINTF("for %s, ", to_string(n_prev->op - 1));
+      while (can_prune(n_prev->op - 1, n_curr->op)) {
+        OMP_DBG_PRINTF("pruned %s, ", to_string(n_curr->op));
+        n_curr->op++; // skip an op
+      }
+      OMP_DBG_PRINTF("continuing with %s\n", to_string(n_curr->op));
+    }
 #endif
 
-        if (n_curr->op >= TRANSITION_COUNT) {
-          // finished all ops
+    if (n_curr->op >= TRANSITION_COUNT) {
+      // finished all ops
 
-          if (path_d == 1) {
-            // after last task spawned
-            task_creation_completed = true;
+      if (path_d == 1) {
+        // after last task spawned
+        task_creation_completed = true;
 
-            omp_unset_lock(&task_creation_lock);
-            goto serial_task_creation_end;
-          } else {
-            // replaced by atomic update to curr_iter_min after task
-            // n_prev->min = std::min(n_prev->min, n_curr->min);
+        goto attempt_task_creation;
+      } else {
+        // replaced by atomic update to curr_iter_min after task
+        // n_prev->min = std::min(n_prev->min, n_curr->min);
 
-            // node_iter_destroy(n_curr); // stack.pop
-            // path[path_d - 1] = NULL;
-            path_d--;
+        // node_iter_destroy(n_curr); // stack.pop
+        // path[path_d - 1] = NULL;
+        path_d--;
 
-            continue; // resume work on previous problem, current problem complete
-          }
-        } else {
-          node_iter_t *n_next = n_curr + 1;
-          node_iter_cpy(n_next, n_curr);
+        continue; // resume work on previous problem, current sub problem complete
+      }
+    } else {
+      node_iter_t *n_next = n_curr + 1;
+      node_iter_cpy(n_next, n_curr);
 
-          // generate next problem:
-          // input: cube, g, d
-          // problem internal state: min, op (iterate from 0 - 17)
+      // generate next problem:
+      // input: cube, g, d
+      // problem internal state: min, op (iterate from 0 - 17)
 
 #ifdef COUNT_TRANSITIONS
 #pragma omp atomic
-          ida_iter_omp_num_transitions_top_level++;
+      ida_iter_omp_num_transitions_top_level++;
 #endif
 
-          // cube
-          transition[n_curr->op](&(n_next->cube));
-          (n_curr->op)++; // go to next op
-          // g
-          n_next->g += cost(n_next, n_curr);
-          // d
-          n_next->d++;
-          // min
-          n_next->min = INFTY; // TODO(tianez): need this? is this optimization?
-          // op
-          n_next->op = 0; // start from first op
+      // cube
+      transition[n_curr->op](&(n_next->cube));
+      (n_curr->op)++; // go to next op
+      // g
+      n_next->g += cost(n_next, n_curr);
+      // d
+      n_next->d++;
+      // min
+      n_next->min = INFTY; // TODO(tianez): need this? is this optimization?
+      // op
+      n_next->op = 0; // start from first op
 
-          // Keep next problem or not ? depending on f and convergence, choices:
-          // 1. convergence:  return found
-          // 2. f > bound:    discard, update current problem min
-          // 3. f <= bound:   keep, next iteration will work on new problem
-          int f = n_next->g + h(corner_db, n_next);
+      // Keep next problem or not ? depending on f and convergence, choices:
+      // 1. convergence:  return found
+      // 2. f > bound:    discard, update current problem min
+      // 3. f <= bound:   keep, next iteration will work on new problem
+      int f = n_next->g + h(corner_db, n_next);
 
-          if (test_converge(&(n_next->cube))) {
-            // node_iter_destroy(n_next);
+      if (test_converge(&(n_next->cube))) {
+        // node_iter_destroy(n_next);
 
-            // TODO(tianez): update and think
+        // TODO(tianez): update and think
 #pragma omp atomic // write
-            curr_iter_mean -= curr_iter_mean; // TODO(tianez): hack of FOUND;
+        curr_iter_mean -= curr_iter_mean; // TODO(tianez): hack of FOUND;
 
-            *solution_length = path_d + 1; // TODO(tianez): correct?
+        *solution_length = path_d + 1; // TODO(tianez): correct?
 
-            omp_unset_lock(&task_creation_lock);
-            goto serial_task_creation_end;
-          }
+#pragma omp atomic
+        found |= 1;
 
-          if (f > bound) { // discard
-            n_curr->min = std::min((int) n_curr->min, f);
-            // node_iter_destroy(n_next);
-          } else {
+        goto attempt_task_creation;
+      }
 
-            if (path_d + 1 < task_creation_depth_limit) {
-              // path[path_d] = n_next; // stack.push
-              path_d++;
-            } else {
-              size_t siz = MAX_DEPTH * sizeof(node_iter_t);
-              local_path = (node_iter_t *) malloc(siz);
-              memcpy(local_path, path, siz);
+      if (f > bound) { // discard
+        n_curr->min = std::min((int) n_curr->min, f);
+        // node_iter_destroy(n_next);
+      } else {
 
+        if (path_d + 1 < task_creation_depth_limit) {
+          // path[path_d] = n_next; // stack.push
+          path_d++;
+        } else {
+          size_t siz = MAX_DEPTH * sizeof(node_iter_t);
+          local_path = (node_iter_t *) malloc(siz);
+          memcpy(local_path, path, siz);
 
-              starting_depth = path_d + 1;
+          starting_depth = path_d + 1;
 
-              break;
+#pragma omp task firstprivate(local_path, starting_depth, bound)
+          {
+            int local_solution_length = search_iter_omp_main_worker_helper(corner_db, local_path, bound,
+                                                                           starting_depth);
+
+            // TODO(tianez): update global and sync
+            if (curr_iter_mean > (int) local_path[starting_depth - 1].min) {
+#pragma omp atomic // write
+              curr_iter_mean -= curr_iter_mean - ((int) local_path[starting_depth - 1].min);
             }
+
+
+            if (local_solution_length > 0) {
+#pragma omp atomic // write
+              found |= 1; // TODO(tianez): hack true;
+
+              memcpy(path, local_path, MAX_DEPTH * sizeof(node_iter_t));
+              *solution_length = local_solution_length;
+            }
+
+            // TODO(tianez): solution length
+
+            free(local_path);
           }
         }
       }
-
-      omp_unset_lock(&task_creation_lock);
-
-      if (starting_depth != -1) {
-        int local_solution_length = search_iter_omp_main_worker_helper(corner_db, local_path, bound, starting_depth);
-
-        // TODO(tianez): update global and sync
-        if (curr_iter_mean > (int) local_path[starting_depth - 1].min) {
-#pragma omp atomic // write
-          curr_iter_mean -= curr_iter_mean - ((int) local_path[starting_depth - 1].min);
-        }
-
-
-        if (local_solution_length > 0) {
-#pragma omp atomic // write
-          found |= 1; // TODO(tianez): hack true;
-
-          omp_set_lock(&task_creation_lock);
-
-          memcpy(path, local_path, MAX_DEPTH * sizeof(node_iter_t));
-          *solution_length = local_solution_length;
-
-          omp_unset_lock(&task_creation_lock);
-
-          free(local_path);
-          goto serial_task_creation_end;
-        }
-
-        // TODO(tianez): solution length
-
-        free(local_path);
-      }
-
-      local_path = NULL;
-      starting_depth = -1;
     }
-
-    serial_task_creation_end:
-      int x = 0; // TODO(tianez): better way?
-
-#pragma omp barrier
   }
-
-  /*
-    size_t siz = MAX_DEPTH * sizeof(node_iter_t);
-    node_iter_t *local_path = malloc(siz);
-    memcpy(local_path, path, siz);
-    */
-
-  omp_destroy_lock(&task_creation_lock);
 }
 
 int SolverIdaIterOmpMainWorker::search_iter_omp_main_worker_helper(paracube::CornerPatternDatabase *corner_db, node_iter_t path[MAX_DEPTH], int bound, int starting_depth) {

@@ -9,9 +9,12 @@
 
 #include "solver_ida_iter_base.h"
 
-#define COUNT_TRANSITIONS
+// #define COUNT_TRANSITIONS
 
 #define PRUNE
+
+#define DEPTH_LIMIT_MIN 2
+#define TASK_BOUND_TARGET 8
 
 #define OMP_PRINTF(format, ...) { \
   omp_set_lock(&printlock); \
