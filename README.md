@@ -12,6 +12,11 @@ We are going to parallelize several algorithms and incorporate our own heuristic
 ### Checkpoint Report
 [checkpoint report](docs/cp_report/checkpoint_report.md)
 
+### Final Report
+[final report](docs/final_report/15618_final_project.pdf)
+[presentation](https://www.youtube.com/watch?v=QLDoSMxMyx0&feature=youtu.be)
+
+
 ### SCHEDULE
 
 ### Nov 4 - Nov 16
@@ -28,21 +33,22 @@ We are going to parallelize several algorithms and incorporate our own heuristic
 ### Nov 23 - Nov 30
 - [x] Adapt database complete. (We spend some time to port our code and make sure our model works with the given database).
 - [x] Parallelize IDA with Korf DB using OMP, and perform measurements.
-- [ ] Incorporate different heuristics and branch pruning techniques that we came up with (work in progress, delayed as we were blocked previous on constructing our own DB)
+- [x] Incorporate different heuristics and branch pruning techniques that we came up with (work in progress, delayed as we were blocked previous on constructing our own DB)
 
 ### Nov 30 - Dec 4
-- [ ] (tianez) continued improvement of branch pruning techniques and OMP.
-- [ ] (chengzhh) MPI implementation of the optimal cube solver. We expect the OMP and MPI algorithms to be different. MPI is more suitable for the more generalized NxNxN cases (which we will not implement due to the changes required for database)
+- [x] (tianez) continued improvement of branch pruning techniques and OMP.
+- [x] (chengzhh) MPI implementation of the optimal cube solver. We expect the OMP and MPI algorithms to be different.
 
 ### Dec 4 - Dec 7
-- [ ] (team) Measurements over all implemented algorithms and understand the new performance characteristics.
+- [x] (team) Measurements over all implemented algorithms and understand the new performance characteristics.
+- [x] (team) deep dive into OMP and MPI implementations
 
 ### Dec 7 - Dec 9
-- [ ] (team) Slack to also catch up for incomplete work from previous weeks.
+- [x] (team) deep dive into OMP and MPI implementations
 
 ### Dec 9 - Dec 14
-- [ ] (team) Prepare for poster session and final report.
-- [ ] (team) Paper will discuss things for future work directions as well, including, requirements for NxNxN, irregular cubes (applying constraints and heuristics) etc.,.
+- [x] (team) deep dive into OMP and MPI implementations
+- [x] (team) Prepare for poster session and final report.
 
 
 
