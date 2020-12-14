@@ -16,6 +16,8 @@ We are going to parallelize several algorithms and incorporate our own heuristic
 [final report](docs/final_report/15618_final_project.pdf)
 [presentation](https://www.youtube.com/watch?v=QLDoSMxMyx0&feature=youtu.be)
 
+For the final project, the CornerDB data file required to run code is [here](data/corner.pdb)
+
 
 ### SCHEDULE
 
