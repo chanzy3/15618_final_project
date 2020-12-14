@@ -17,7 +17,8 @@ enum method {
   IDA = 1,
   IDA_MPI = 2,
   IDA_MPI2 = 3,
-  IDA_MPI3 = 4
+  IDA_MPI3 = 4,
+  IDA_MPI4 = 5
 };
 
 #define UPDATE_TAG 1
@@ -49,6 +50,10 @@ public:
         ida_init(numProcessors);
         break;
       case IDA_MPI3:
+        ida_init(numProcessors);
+        break;
+
+      case IDA_MPI4:
         ida_init(numProcessors);
         break;
       default:
@@ -85,6 +90,7 @@ private:
   void run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db);
   bool ida_solve_mpi_v2(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
   bool ida_solve_mpi_v3(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
+  bool ida_solve_mpi_v4(cube_t *cube, int solution[MAX_DEPTH], int *num_steps);
   // bool ida_para_helper(cube_t *cube, int solution[MAX_DEPTH], int *num_steps, bool &t, node_t **path, CubeSet &cubes);
 
   paracube::CornerPatternDatabase corner_db;

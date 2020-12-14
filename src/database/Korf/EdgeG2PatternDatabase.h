@@ -9,6 +9,8 @@
 #include "../../RubiksCubeIndexModel.h"
 #include "EdgePatternDatabase.h"
 #include <cstdint>
+#include <stdint.h>
+
 
 namespace paracube
 {

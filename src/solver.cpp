@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <queue>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,7 @@
 
 #define TRANSITION_COUNT 18
 #define MAX_SEND_SIZE 1000
+#define SEND_SIZE 6000
 
 extern int numProcessors;
 extern int processorId;
@@ -90,6 +92,17 @@ const char *Solver::to_string(int operation)
   }
 }
 
+bool can_prune(int prev_op, int op) {
+  int u = prev_op % 6;
+  int v = op % 6;
+  // u even -> prev_op F, L, U
+  //
+  // u == v :     e.g. Fx followed by Fy
+  // v - u == 1 : e.g. Fx followed by By (commutative)
+
+  return (u == v) || (v - u == 1 && (u % 2 == 0));
+}
+
 // search node
 typedef struct node
 {
@@ -150,6 +163,7 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     solution_found = bfs_solve(cube, solution, num_steps);
     break;
   case IDA:
+    // std::cout << "Sovling with IDA" << std::endl;
     solution_found = ida_solve(cube, solution, num_steps);
     break;
   case IDA_MPI:
@@ -160,6 +174,9 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     break;
   case IDA_MPI3:
     solution_found = ida_solve_mpi_v3(cube, solution, num_steps);
+    break;
+  case IDA_MPI4:
+    solution_found = ida_solve_mpi_v4(cube, solution, num_steps);
     break;
   default:
     fprintf(stderr, "unknown method %d\n", this->method);
@@ -173,7 +190,7 @@ bool Solver::solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
     fprintf(stderr, "did not find solution within %d steps\n", DEPTH_LIMIT);
     exit(0);
   }
-  if (this->method == IDA_MPI || this->method == IDA_MPI2 || this->method == IDA_MPI3)
+  if (this->method == IDA_MPI || this->method == IDA_MPI2 || this->method == IDA_MPI3 || this->method == IDA_MPI4)
   {
     if (this->processorId == 0)
     {
@@ -274,7 +291,7 @@ char corner_db_input_filename[19] = "data/corner.pdb";
 void Solver::ida_init(int numProcessors = 1)
 {
   this->numProcessors = numProcessors;
-
+  // std::cout << "Sucessfully load database" << std::endl;
   if (!corner_db.fromFile(corner_db_input_filename))
   {
     printf("failed to init corner_db from file '%s'\n", corner_db_input_filename);
@@ -292,6 +309,7 @@ int h(paracube::CornerPatternDatabase *corner_db, node_t *node, int d)
   //
   // return 1;
   DBG_CUBE(node->cube);
+  // std::cout << "H is: " << corner_db->getNumMoves(*node->cube) << std::endl;
   return corner_db->getNumMoves(*node->cube);
 }
 
@@ -321,27 +339,20 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
   d = 1;
   bound = h(&this->corner_db, root, d);
   DBG_PRINTF("initial bound %d\n", bound);
+  std::cout << "initial bound: " << bound << std::endl;
 
   CubeSet cubes;
   std::stack<node_t *> nodeStack;
+  // std::cout << "I'm here" << std::endl;
   while (1)
   {
-    // int t = search(&this->corner_db, path, &d, cubes, 0, bound);
-    // std::cout << "Bound is" << bound << "depth is: " << d << std::endl;
-    cubes.clear();
-    cubes.insert(*cube);
-
-    root = node_new_from_cube(cube);
-    nodeStack.push(root);
-    std::cout << "Size of cubes set is" << cubes.size() << std::endl;
-    std::cout << "size of the nodestack is" << nodeStack.size() << std::endl;
-
-    int t = bounded_dfs(nodeStack, &this->corner_db, path, &d, cubes, bound);
-
+    int t = search(&this->corner_db, path, &d, cubes, 0, bound);
+    // std::cout << "Finish Searching" << std::endl;
     DBG_PRINTF("t: %d\n\n", t);
     if (t == FOUND)
     {
-      node_t *n = path[d];
+      // std::cout << "Found" << std::endl;
+      node_t *n = path[d - 1];
       *num_steps = n->d;
       memcpy(solution, n->steps, MAX_DEPTH * sizeof(int));
       for (int i = 0; i < MAX_DEPTH; i++)
@@ -356,7 +367,9 @@ bool Solver::ida_solve(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
       return false;
     }
     bound = t;
-    d = 1;
+    // d = 1;
+    std::cout << "Bound is: " << bound << std::endl;
+
   }
 
   // TODO(tianez): free entire path from 0 to d (inc)
@@ -372,19 +385,12 @@ bool cube_visited(const CubeSet &cubes, cube_t *cube)
 int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet &cubes, int g, int bound)
 {
   node_t *node = path[(*d) - 1];
+  // std::cout << "I'm here" << std::endl;
   int f = g + h(corner_db, node, (*d) - 1);
   DBG_PRINTF("search h %d\n", f - g);
-  // std::cout << "Depth is : " << *d << std::endl;
-
-  //   for (int i = 0; i < node->d; i++)
-  //   {
-  //     printf("%s ", Solver::to_string(node->steps[i]));
-  //   }
-  //   printf("\n");
-
+  // std::cout << "f is: " << f << std::endl;
   if (f > bound)
   {
-    //printf("f: %d, bound: %d\n", f, bound);
     return f;
   }
 
@@ -400,22 +406,9 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
     node_t *n = node_cpy(node);
     cube_t *c = n->cube;
 
-    transition[op](c); // succ->cube
+    transition[op](c);
 
-    // DBG_PRINTF("!!! %s\n", Solver::to_string(op));
-    // DBG_PRINTF("!!! Bound is : %d\n", bound);
-    // for (int i = 0; i < node->d; i++)
-    // {
-    //   DBG_PRINTF("%s ", Solver::to_string(node->steps[i]));
-    // }
-    // R3 D3 B3 L3 U3 B3 L3 R3
-    // DBG_PRINTF("\n");
-    // DBG_PRINTF("=========\n");
-    // ppp(node->cube);
-    // ppp(c);
-    // DBG_PRINTF("=========\n");
-
-    if (cube_visited(cubes, c))
+    if (cube_visited(cubes, c) || (n->d != 0 && can_prune(n->steps[n->d-1], op)))
     {
       free(c);
       free(n);
@@ -434,11 +427,6 @@ int search(paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], 
 
     if (t == FOUND)
     {
-      //     for (int i = 0; i < node->d; i++)
-      // {
-      //   printf("%s ", Solver::to_string(node->steps[i]));
-      // }
-      // printf("\n");
       return FOUND;
     }
 
@@ -619,6 +607,7 @@ void Solver::run_worker(cube_t *cube, paracube::CornerPatternDatabase *corner_db
       bound = buf.bound;
 
       res.bound = search(corner_db, path, &depth, cubes, 0, bound);
+      std::cout << "res bound is: " << res.bound << std::endl;
       n = path[depth - 1];
       res.depth = n->d - 1;
       memcpy(res.solution, n->steps, MAX_DEPTH * sizeof(int));
@@ -941,8 +930,10 @@ void run_worker_v2(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
       bound = buf.bound;
 
     nodeStack.push(node_cpy(path[depth - 1]));
-    ans.bound = bounded_dfs(nodeStack, corner_db, path, &res_depth, cubes, bound);
-    cur_n = path[res_depth];
+    ans.bound = search(corner_db, path, &depth, cubes, depth - 1, bound);
+    // ans.bound = bounded_dfs(nodeStack, corner_db, path, &res_depth, cubes, bound);
+    // std::cout << "depth is: " << depth << std::endl;
+    cur_n = path[depth - 1];
     ans.depth = cur_n->d - 1;
     memcpy(ans.solution, cur_n->steps, MAX_DEPTH * sizeof(int));
 
@@ -973,16 +964,253 @@ bool Solver::ida_solve_mpi_v2(cube_t *cube, int solution[MAX_DEPTH], int *num_st
   }
 }
 
-
-
-
-//////////////////////////////v3 /////////////////////////
+// create mpi_type to send
 typedef struct mpi_node
 {
   uint8_t cube[54];
   int steps[MAX_DEPTH];
   int d;
+  int is_contract;
+  int contract_size;
+  int bound;
 } mpi_node_s;
+
+MPI_Datatype createMpiNode()
+{
+  MPI_Datatype new_type;
+  const int nitems = 6;
+  MPI_Datatype types[6] = {MPI_UINT8_T, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+  MPI_Aint offsets[6];
+  int blocklens[6] = {54, MAX_DEPTH, 1, 1, 1, 1};
+
+  offsets[0] = offsetof(mpi_node_s, cube);
+  offsets[1] = offsetof(mpi_node_s, steps);
+  offsets[2] = offsetof(mpi_node_s, d);
+  offsets[3] = offsetof(mpi_node_s, is_contract);
+  offsets[4] = offsetof(mpi_node_s, contract_size);
+  offsets[5] = offsetof(mpi_node_s, bound);
+
+  MPI_Type_create_struct(nitems, blocklens, offsets, types, &new_type);
+  MPI_Type_commit(&new_type);
+  return new_type;
+}
+
+mpi_node_s makeMpiNode(node_t *n, int is_contract, int contract_size, int bound)
+{
+
+  uint8_t *cubeArr;
+
+  mpi_node_s mpiNode;
+  mpiNode.is_contract = is_contract;
+  mpiNode.contract_size = contract_size;
+  mpiNode.d = n->d;
+  cubeArr = n->cube->convertCubeToArr();
+  memcpy(mpiNode.cube, cubeArr, sizeof(uint8_t) * 54);
+  memcpy(mpiNode.steps, n->steps, MAX_DEPTH * sizeof(int));
+  mpiNode.bound = bound;
+  return mpiNode;
+}
+ans_t2 makeAnsNode(node_t *n, int is_contract, int contract_size, int bound)
+{
+  ans_t2 ansNode;
+  ansNode.bound = bound;
+  ansNode.is_partial = is_contract;
+  ansNode.depth = n->d;
+  memcpy(ansNode.solution, n->steps, MAX_DEPTH*sizeof(int));
+  return ansNode;
+}
+// last attempt, hope it works :)
+void run_master_v4(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
+{
+  bool is_partial = false;
+  int contract_size = 0;
+  MPI_Status mpi_sta;
+  int num_workers = numProcessors - 1;
+  // mpi_node_s sendNodeBuf;
+  ans_t2 sendNodeBuf;
+  ans_t2 ans;
+  int numTermination = 0;
+
+  int bound = INFTY;
+  int next_bound = INFTY;
+  int branchid = 0;
+
+  node_t *n;
+
+  std::vector<node_t *> frontier_nodes;
+  frontier_nodes = bfs_expand_greedy(cube, SEND_SIZE, is_partial, contract_size, corner_db);
+
+  for (int i = 0; i < frontier_nodes.size(); i++)
+  {
+    n = frontier_nodes[i];
+    bound = std::min(bound, n->d + h(corner_db, n, n->d));
+    // std::cout << "g value of node " << i << "is: " << n->d + h(corner_db, n, n->d) << std::endl;
+  }
+
+  while (1)
+  {
+    // std::cout << "branchid: " << branchid << "Bound is : " << bound << std::endl;
+    MPI_Recv(&ans, 1, mpi_ans_t2, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
+    switch (mpi_sta.MPI_TAG)
+    {
+    case ALLOCATE_TAG:
+      if (branchid == SEND_SIZE)
+      {
+        numTermination++;
+      }
+      else
+      {
+        if (branchid == SEND_SIZE-1)
+        {
+          // std::cout << "Send bound is:" << bound << std::endl;
+          if (is_partial)
+            sendNodeBuf = makeAnsNode(frontier_nodes[branchid], 1, contract_size, bound);
+          else
+            sendNodeBuf = makeAnsNode(frontier_nodes[branchid], 0, contract_size, bound);
+        }
+        else
+        {
+          sendNodeBuf = makeAnsNode(frontier_nodes[branchid], 0, 0, bound);
+        }
+        MPI_Send(&sendNodeBuf, 1, mpi_ans_t2, mpi_sta.MPI_SOURCE, START_TAG, MPI_COMM_WORLD);
+        branchid++;
+      }
+      break;
+
+    case UPDATE_TAG:
+      if (ans.bound == FOUND)
+      {
+        memcpy(solution, ans.solution, sizeof(int) * MAX_DEPTH);
+        *num_steps = ans.depth + 1;
+        // Abort MPI_COMM immediately, this will cause speedup anomaly
+        return;
+      }
+      if (ans.bound < next_bound)
+      {
+        next_bound = ans.bound;
+      }
+      break;
+    }
+
+    // renew bound
+    if (numTermination == num_workers) {
+      bound = next_bound;
+      next_bound = INFTY;
+      branchid = 0;
+      numTermination = 0;
+      // std::cout << "Bound is: " << bound;
+
+      for (int i = 0; i < num_workers; i++)
+      { 
+        // std::cout << "Send bound: " << bound << std::endl;
+        sendNodeBuf = makeAnsNode(frontier_nodes[branchid], 0, 0, bound);
+        MPI_Send(&sendNodeBuf, 1, mpi_ans_t2, i+1, START_TAG, MPI_COMM_WORLD);
+      }
+    }
+    
+  }
+}
+void run_worker_v4(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
+{
+  MPI_Status mpi_sta;
+  ans_t2 ans, buf;
+  // mpi_node_s recvNodeBuf;
+  int depth;
+  int bound;
+  int is_partial;
+  int contract_size;
+  CubeSet cubes;
+  int steps[MAX_DEPTH];
+  node_t *root, *cur_n;
+  cube_t *c;
+  node_t *path[MAX_DEPTH];
+  std::stack<node_t *> nodeStack;
+  int op;
+  int res_depth;
+
+  while (1)
+  {
+    MPI_Send(&buf, 1, mpi_ans_t2, 0, ALLOCATE_TAG, MPI_COMM_WORLD);
+    MPI_Recv(&buf, 1, mpi_ans_t2, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_sta);
+
+    if (mpi_sta.MPI_TAG == START_TAG)
+    {
+      cubes.clear();
+      root = node_new_from_cube(cube);
+      bound = buf.bound;
+
+      path[0] = root;
+      cur_n = node_cpy(root);
+      cubes.insert(*(cur_n->cube));
+      memcpy(steps, buf.solution, MAX_DEPTH * sizeof(int));
+      is_partial = buf.is_partial;
+      contract_size = buf.contract_size;
+
+      depth = buf.depth;
+      for (int i = 0; i < depth; i++)
+      {
+        op = steps[i];
+        cur_n = node_cpy(cur_n);
+        c = cur_n->cube;
+        transition[op](c);
+        cur_n->d++;
+        cur_n->steps[i] = op;
+        cubes.insert(*(cur_n->cube));
+        path[i + 1] = cur_n;
+      }
+
+      // If partial contraction, make sure add indications of nodes that are added to
+      // other nodes
+      if (is_partial == 1)
+      {
+        cur_n = path[depth];
+        for (op = 0; op < contract_size; op++)
+        {
+          cur_n = node_cpy(cur_n);
+          c = cur_n->cube;
+          transition[op](c);
+          cubes.insert(*(cur_n->cube));
+        }
+      }
+      depth++;
+    }
+
+    // std::cout << "Depth is: " << depth << "size of cubes: " << cubes.size() << "bound: "<< bound << std::endl;
+    ans.bound = search(corner_db, path, &depth, cubes, depth - 1, bound);
+    // std::cout << "BOund is :" << ans.bound << std::endl;
+
+    cur_n = path[depth - 1];
+    ans.depth = cur_n->d - 1;
+    memcpy(ans.solution, cur_n->steps, MAX_DEPTH * sizeof(int));
+
+    MPI_Send(&ans, 1, mpi_ans_t2, 0, UPDATE_TAG, MPI_COMM_WORLD);
+  }
+}
+bool Solver::ida_solve_mpi_v4(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
+{
+  if (numProcessors == 1)
+    ida_solve(cube, solution, num_steps);
+  else
+  {
+    MPI_Comm_size(MPI_COMM_WORLD, &numProcessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &this->processorId);
+
+    mpi_ans_t2 = createType_v2();
+    // mpi_node_t = createMpiNode();
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (this->processorId == 0)
+    {
+      run_master_v4(&this->corner_db, cube, solution, num_steps);
+    }
+    else
+      run_worker_v4(cube, &this->corner_db);
+
+    return true;
+  }
+}
+
+//////////////////////////////v3 /////////////////////////
 
 // measure this method
 int bounded_dfs(std::stack<node_t *> &nodeStack, paracube::CornerPatternDatabase *corner_db, node_t *path[MAX_DEPTH], int *d, CubeSet cubes, int bound)
@@ -1001,11 +1229,11 @@ int bounded_dfs(std::stack<node_t *> &nodeStack, paracube::CornerPatternDatabase
 
   while (!nodeStack.empty())
   {
-#ifdef WORKSTEAL
-    // "listen for" request_workload signal from master node
-    MPI_Irecv(&ans, 1, MPI_INT, 0, REQUEST_WORKLOAD, MPI_COMM_WORLD, &irreq);
-#endif
-
+    // #ifdef WORKSTEAL
+    //     // "listen for" request_workload signal from master node
+    //     MPI_Irecv(&ans, 1, MPI_INT, 0, REQUEST_WORKLOAD, MPI_COMM_WORLD, &irreq);
+    // #endif
+    // std::cout << nodeStack.size() << "node stack is: " << std::endl;
     curNode = nodeStack.top();
     nodeStack.pop();
 
@@ -1039,91 +1267,73 @@ int bounded_dfs(std::stack<node_t *> &nodeStack, paracube::CornerPatternDatabase
       nodeStack.push(n);
     }
     free(curNode);
-#ifdef WORKSTEAL
-    // to test if we got the workload request yet
-    std::cout << "Start Testing" << std::endl;
-    MPI_Test(&irreq, &flag, &itest_sta);
-    std::cout << "Finish testing" << "flag: " << flag << std::endl;
-    // if yes, reply workload to master processor
-    if (flag != 0)
-    {
-      std::cout << "detect idle" << std::endl;
-      size_buf = nodeStack.size();
-      // Tell master node how large the stack is
-      MPI_Send(&size_buf, 1, MPI_INT, 0, SIZE_TAG, MPI_COMM_WORLD);
-      // Receive from master whether to send nodes
-      MPI_Recv(&sendWorkNum, 1, MPI_INT, 0, IF_SEND_TAG, MPI_COMM_WORLD, &mpi_sta);
+    // #ifdef WORKSTEAL
+    //     // to test if we got the workload request yet
+    //     // std::cout << "Start Testing" << std::endl;
+    //     MPI_Test(&irreq, &flag, &itest_sta);
+    //     // std::cout << "Finish testing" << "flag: " << flag << std::endl;
+    //     // if yes, reply workload to master processor
+    //     if (flag != 0)
+    //     {
+    //       std::cout << "detect idle" << std::endl;
+    //       size_buf = nodeStack.size();
+    //       // Tell master node how large the stack is
+    //       MPI_Send(&size_buf, 1, MPI_INT, 0, SIZE_TAG, MPI_COMM_WORLD);
+    //       // Receive from master whether to send nodes
+    //       MPI_Recv(&sendWorkNum, 1, MPI_INT, 0, IF_SEND_TAG, MPI_COMM_WORLD, &mpi_sta);
 
-      if (sendWorkNum != 0)
-      {
-        // send half of its stack to idle nodes
-        sendStackSize = std::min((int)nodeStack.size() / 2, MAX_SEND_SIZE);
-        // shall we send visited set as well?
-        for (int i = 0; i < sendStackSize; i++)
-        {
-          nodeTop = nodeStack.top();
-          c = nodeTop->cube;
+    //       if (sendWorkNum != 0)
+    //       {
+    //         // send half of its stack to idle nodes
+    //         sendStackSize = std::min((int)nodeStack.size() / 2, MAX_SEND_SIZE);
+    //         // shall we send visited set as well?
+    //         for (int i = 0; i < sendStackSize; i++)
+    //         {
+    //           nodeTop = nodeStack.top();
+    //           c = nodeTop->cube;
 
-          cubeArr = c->convertCubeToArr();
-          memcpy(n.steps, nodeTop->steps, sizeof(int) * MAX_DEPTH);
-          memcpy(n.cube, cubeArr, sizeof(uint8_t) * 54);
-          n.d = nodeTop->d;
+    //           cubeArr = c->convertCubeToArr();
+    //           memcpy(n.steps, nodeTop->steps, sizeof(int) * MAX_DEPTH);
+    //           memcpy(n.cube, cubeArr, sizeof(uint8_t) * 54);
+    //           n.d = nodeTop->d;
 
-          stackBuf[i] = n;
-          cubes.insert(*(c));
+    //           stackBuf[i] = n;
+    //           cubes.insert(*(c));
 
-          nodeStack.pop();
-          free(nodeTop);
-        }
+    //           nodeStack.pop();
+    //           free(nodeTop);
+    //         }
 
-        // TODO: define mpi_node_t
-        MPI_Send(stackBuf, sendStackSize, mpi_node_t, sendWorkNum, SEND_WORK, MPI_COMM_WORLD);
-        flag = false;
-      }
-    }
-    else
-    {
-      // If no work received, abort request
-      MPI_Cancel(&irreq);
-      MPI_Request_free(&irreq);
-    }
+    //         // TODO: define mpi_node_t
+    //         MPI_Send(stackBuf, sendStackSize, mpi_node_t, sendWorkNum, SEND_WORK, MPI_COMM_WORLD);
+    //         flag = false;
+    //       }
+    //     }
+    //     else
+    //     {
+    //       // If no work received, abort request
+    //       MPI_Cancel(&irreq);
+    //       MPI_Request_free(&irreq);
+    //     }
 
-#endif
+    // #endif
   }
   return res;
 }
 
 ////////////////IDA v3 with work stealing /////////
 
-MPI_Datatype createMpiNode()
-{
-  MPI_Datatype new_type;
-  const int nitems = 3;
-  MPI_Datatype types[3] = {MPI_UINT8_T, MPI_INT, MPI_INT};
-  MPI_Aint offsets[3];
-  int blocklens[3] = {54, MAX_DEPTH, 1};
-
-  offsets[0] = offsetof(mpi_node_s, cube);
-  offsets[1] = offsetof(mpi_node_s, steps);
-  offsets[2] = offsetof(mpi_node_s, d);
-
-  MPI_Type_create_struct(nitems, blocklens, offsets, types, &new_type);
-  MPI_Type_commit(&new_type);
-  return new_type;
-}
-
-
 void run_master_v3(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
 {
   /////////////Initial Distribution ////////////////
-  bool is_partial = false;
+  bool is_partial = 0;
   int contract_size = 0;
   MPI_Status mpi_sta;
   int num_workers = numProcessors - 1;
   ans_t2 buf;
   ans_t2 ans;
   int num_messages_recv = 0;
-  int askWorkLoad=0, maxWorkLoad = -INFTY, bufWorkLoad, numWorkerSend = -1;
+  int askWorkLoad = 0, maxWorkLoad = -INFTY, bufWorkLoad, numWorkerSend = -1, sendWorkToBuf;
   int stealWorkInfo[2];
 
   int bound = INFTY;
@@ -1197,9 +1407,10 @@ void run_master_v3(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int
       {
         if (!isTermination[i] && (i + 1 != mpi_sta.MPI_SOURCE))
         {
+          std::cout << "Start requesting workload" << std::endl;
           MPI_Send(&askWorkLoad, 1, MPI_INT, i + 1, REQUEST_WORKLOAD, MPI_COMM_WORLD);
           MPI_Recv(&bufWorkLoad, 1, MPI_INT, i + 1, SIZE_TAG, MPI_COMM_WORLD, &mpi_sta);
-
+          std::cout << "workload is:" << bufWorkLoad << std::endl;
           if (maxWorkLoad < bufWorkLoad && bufWorkLoad > 5)
           {
             maxWorkLoad = bufWorkLoad;
@@ -1207,24 +1418,26 @@ void run_master_v3(paracube::CornerPatternDatabase *corner_db, cube_t *cube, int
           }
         }
       }
-      
+
       // Tell idle node if they would expect to receive from others
       stealWorkInfo[0] = numWorkerSend;
       stealWorkInfo[1] = maxWorkLoad;
-      std::cout << "Start sending steal work info " << std::endl;
+      // std::cout << "Start sending steal work info " << std::endl;
       MPI_Send(stealWorkInfo, 2, MPI_INT, mpi_sta.MPI_SOURCE, IF_STEAL_TAG, MPI_COMM_WORLD);
 
       // Tell them if they need to send work if yes, tell them where to send, or else tell them 0
-      
+
       for (int i = 0; i < num_workers; i++)
       {
         if (i + 1 == numWorkerSend && !isTermination[i] && i + 1 != mpi_sta.MPI_SOURCE)
         {
-          MPI_Send(&mpi_sta.MPI_SOURCE, 1, MPI_INT, i + 1, IF_SEND_TAG, MPI_COMM_WORLD);
+          sendWorkToBuf = mpi_sta.MPI_SOURCE;
+          MPI_Send(&sendWorkToBuf, 1, MPI_INT, i + 1, IF_SEND_TAG, MPI_COMM_WORLD);
         }
         else
         {
-          MPI_Send(0, 1, MPI_INT, i + 1, IF_SEND_TAG, MPI_COMM_WORLD);
+          sendWorkToBuf = 0;
+          MPI_Send(&sendWorkToBuf, 1, MPI_INT, i + 1, IF_SEND_TAG, MPI_COMM_WORLD);
         }
       }
       break;
@@ -1255,8 +1468,8 @@ void run_worker_v3(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
   MPI_Status mpi_sta, mpi_sta2;
   ans_t2 ans;
   ans_t2 buf;
-  int depth, bound, is_partial, contract_size, op, res_depth, stealSize, flag=0, ansWorkload, flag2=0;
-  MPI_Request irreq, irreqrec; 
+  int depth, bound, is_partial, contract_size, op, res_depth, stealSize, flag = 0, ansWorkload, flag2 = 0;
+  MPI_Request irreq, irreqrec;
 
   int stealWorkInfo[2];
 
@@ -1267,7 +1480,6 @@ void run_worker_v3(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
   cube_t *c;
   node_t *path[MAX_DEPTH];
   std::stack<node_t *> nodeStack, stealNodeStack;
-
 
   while (1)
   {
@@ -1316,49 +1528,58 @@ void run_worker_v3(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
 
     else if (mpi_sta.MPI_TAG == UPDATE_TAG)
       bound = buf.bound;
-    std::cout << "Bound is : " << bound << std::endl;
+    // std::cout << "Bound is : " << bound << std::endl;
     nodeStack.push(node_cpy(path[depth - 1]));
     ans.bound = bounded_dfs(nodeStack, corner_db, path, &res_depth, cubes, bound);
     cur_n = path[res_depth];
     ans.depth = cur_n->d - 1;
     memcpy(ans.solution, cur_n->steps, MAX_DEPTH * sizeof(int));
 
-
     // TODO: RECV AFTER SEND
-    flag = 0; 
+    flag = 0;
     flag2 = 0;
     MPI_Isend(&ans, 1, mpi_ans_t2, 0, FINISH_TAG, MPI_COMM_WORLD, &irreq);
-    // std::cout << "I'm here " << std::endl;
-    do{
-      // std::cout << "Not yet finish sending" << std::endl;
+    std::cout << "I'm here " << std::endl;
+    do
+    {
+      std::cout << "Not yet finish sending" << std::endl;
       MPI_Irecv(&ansWorkload, 1, MPI_INT, 0, REQUEST_WORKLOAD, MPI_COMM_WORLD, &irreqrec);
+      std::cout << "Not Not yet finish sending" << std::endl;
+
       MPI_Test(&irreqrec, &flag2, &mpi_sta2);
+      std::cout << "Not Not Not yet finish sending" << std::endl;
+
       if (flag2 != 0)
       {
-        // std::cout << "detected!" << std::endl;
-        ansWorkload=0;
+        std::cout << "detected!" << std::endl;
+        ansWorkload = 0;
         MPI_Send(&ansWorkload, 1, MPI_INT, 0, SIZE_TAG, MPI_COMM_WORLD);
+        MPI_Recv(&ansWorkload, 1, MPI_INT, 0, IF_SEND_TAG, MPI_COMM_WORLD, &mpi_sta);
+        std::cout << "Finish reciving if send tag" << std::endl;
       }
+      std::cout << "Not Not Not Not yet finish sending" << std::endl;
 
       MPI_Test(&irreq, &flag, &mpi_sta);
-    } while(flag != 1);
-
+    } while (flag != 1);
 
     // idle processor waiting for work indefintely, if no work, terminate
-    while (1) {
+    while (1)
+    {
       std::cout << "Start receiving stealworkinfo: " << std::endl;
 
       MPI_Recv(stealWorkInfo, 2, MPI_INT, 0, IF_STEAL_TAG, MPI_COMM_WORLD, &mpi_sta);
-      std::cout << "Finish receiving stealworkinfo: " << stealSize << std::endl;
+      // std::cout << "Finish receiving stealworkinfo: " << stealSize << std::endl;
 
       stealSize = stealWorkInfo[1];
-      std::cout << "steal size is: " << stealSize << std::endl;
+      // std::cout << "steal size is: " << stealSize << "steal from: " << stealWorkInfo[0] << std::endl;
 
-      if (stealWorkInfo[0] != -1) {
+      if (stealWorkInfo[0] != -1)
+      {
+        // std::cout << "start receiving info from" << std::endl;
         MPI_Recv(stealBuf, stealSize, mpi_node_t, stealWorkInfo[0], SEND_WORK, MPI_COMM_WORLD, &mpi_sta);
         // convert received info to stack
-        for (int i = 0; i < stealSize; i++) 
-        { 
+        for (int i = 0; i < stealSize; i++)
+        {
           cur_mpi_node = stealBuf[i];
           cur_n = node_new();
           *(cur_n->cube) = Cube(cur_mpi_node.cube);
@@ -1366,7 +1587,6 @@ void run_worker_v3(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
           memcpy(cur_n->steps, cur_mpi_node.steps, MAX_DEPTH * sizeof(int));
           cur_n->d = cur_mpi_node.d;
           stealNodeStack.push(cur_n);
-
         }
 
         // perform bounded dfs on stolen stack, same bound, same visited cubes, same path
@@ -1376,17 +1596,15 @@ void run_worker_v3(cube_t *cube, paracube::CornerPatternDatabase *corner_db)
         ans.depth = cur_n->d - 1;
         memcpy(ans.solution, cur_n->steps, MAX_DEPTH * sizeof(int));
         MPI_Send(&ans, 1, mpi_ans_t2, 0, FINISH_TAG, MPI_COMM_WORLD);
-
       }
-      else {
-        MPI_Send(NULL, 0, MPI_INT, 0, TERMINATION_TAG, MPI_COMM_WORLD);
+      else
+      {
+        MPI_Send(&ansWorkload, 1, MPI_INT, 0, TERMINATION_TAG, MPI_COMM_WORLD);
         break;
       }
     }
-  
   }
 }
-
 
 bool Solver::ida_solve_mpi_v3(cube_t *cube, int solution[MAX_DEPTH], int *num_steps)
 {
@@ -1398,7 +1616,7 @@ bool Solver::ida_solve_mpi_v3(cube_t *cube, int solution[MAX_DEPTH], int *num_st
 
     MPI_Comm_size(MPI_COMM_WORLD, &numProcessors);
     MPI_Comm_rank(MPI_COMM_WORLD, &this->processorId);
-    
+
     mpi_ans_t2 = createType_v2();
     mpi_node_t = createMpiNode();
     MPI_Barrier(MPI_COMM_WORLD);

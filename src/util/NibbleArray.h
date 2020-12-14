@@ -11,6 +11,8 @@ using std::size_t;
 using std::vector;
 #include <cstdint>
 #include <algorithm>
+#include <stdint.h>
+
 using std::fill;
 
 namespace paracube

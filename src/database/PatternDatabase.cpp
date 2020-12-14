@@ -3,6 +3,7 @@
 //
 
 #include "PatternDatabase.h"
+#include <iostream> 
 
 namespace paracube
 {
@@ -59,6 +60,7 @@ namespace paracube
    */
   uint8_t PatternDatabase::getNumMoves(const uint32_t ind) const
   {
+    // std::cout << "Results is: " << (int)ind << std::endl;
     return this->database.get(ind);
   }
 

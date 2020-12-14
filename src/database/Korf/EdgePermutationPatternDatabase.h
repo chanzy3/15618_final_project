@@ -14,6 +14,8 @@
 using std::bitset;
 #include <array>
 using std::array;
+#include <stdint.h>
+
 
 namespace paracube
 {

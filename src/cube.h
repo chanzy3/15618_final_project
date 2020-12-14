@@ -12,6 +12,8 @@
 #include <vector>
 #include <cstdint>
 #include <unordered_set>
+#include <stdint.h>
+
 
 #define COLOR uint8_t
 #define CORNER uint8_t // TODO(tianez): fix

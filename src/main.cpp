@@ -79,6 +79,10 @@ int main(int argc, char **argv)
   {
     method = IDA_MPI3;
   }
+  else if (strcmp(solverName, "IDA_MPI4") == 0)
+  {
+    method = IDA_MPI4;
+  }
   else
   {
     fprintf(stderr, "Unknown method name (%s)\n", solverName);
@@ -126,6 +130,8 @@ int main(int argc, char **argv)
     exit(1);
   }
   // end parsing input file for cube spec //////////////////////////////////////
+  if (method == IDA_MPI || method == IDA_MPI2 || method == IDA_MPI3 || method == IDA_MPI4)
+    MPI_Init(&argc, &argv);
 
   Solver solver(method, numProcessors);
 
@@ -133,9 +139,8 @@ int main(int argc, char **argv)
   int solution[MAX_DEPTH];
   int num_steps;
 
-  if (method == IDA_MPI || method == IDA_MPI2 || method == IDA_MPI3)
-    MPI_Init(&argc, &argv);
+  
   solver.solve(cube, solution, &num_steps);
-  if (method == IDA_MPI || method == IDA_MPI2 || method == IDA_MPI3)
+  if (method == IDA_MPI || method == IDA_MPI2 || method == IDA_MPI3 || method == IDA_MPI4)
     MPI_Finalize();
 }

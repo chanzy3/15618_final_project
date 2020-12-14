@@ -16,6 +16,8 @@
 using std::max;
 #include <cstdint>
 #include <vector>
+#include <stdint.h>
+
 using std::vector;
 
 namespace paracube

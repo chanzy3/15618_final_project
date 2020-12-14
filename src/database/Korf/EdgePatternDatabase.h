@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <bitset>
 using std::bitset;
+#include <stdint.h>
+
 
 namespace paracube
 {

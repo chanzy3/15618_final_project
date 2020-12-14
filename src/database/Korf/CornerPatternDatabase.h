@@ -9,6 +9,9 @@
 #include "../PatternDatabase.h"
 #include <cstdint>
 #include <bitset>
+#include <stdint.h>
+#include <array>
+
 using std::bitset;
 
 namespace paracube

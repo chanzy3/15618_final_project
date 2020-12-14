@@ -9,6 +9,7 @@
 #include "../util/NibbleArray.h"
 #include "../util/RubiksCubeException.h"
 #include <cstdint>
+#include <stdint.h>
 #include <cstddef>
 using std::size_t;
 #include <fstream>
